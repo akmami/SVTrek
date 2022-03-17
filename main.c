@@ -21,7 +21,7 @@ int main(int argc, const char * argv[]) {
     bam1_t* bam_alignment; /* Structure for one alignment */
     
     // Needs initialization
-    char *path; /* input SAM/BAM/CRAM file name */
+    char *path = "~/HG002.GRCh38.300x.bam"; /* input SAM/BAM/CRAM file name */
     char *fai_file; /* file name for the reference genome FAI index as generated using,
                        e.g., samtools faidx ref.fa */
     
@@ -36,9 +36,9 @@ int main(int argc, const char * argv[]) {
     int return_value = sam_read1( bam_file, bam_header, bam_alignment);
         /* return >= 0 on successfully reading a new record, -1 on end of stream, < -1 on error */
     
-    int chrom_id; /* ID of the chromosome as defined in the BAM/CRAM header. First chromosome ID is 0.*/
-    int start; /* starting coordinate: 0-based */
-    int end; /* ending coordinate: 0-based */
+    int chrom_id = 1; /* ID of the chromosome as defined in the BAM/CRAM header. First chromosome ID is 0.*/
+    int start = 0; /* starting coordinate: 0-based */
+    int end = 1000; /* ending coordinate: 0-based */
     iter = sam_itr_queryi( bam_file_index, chrom_id, start, end);
         /* returns NULL if it fails */
     
