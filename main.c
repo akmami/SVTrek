@@ -21,8 +21,8 @@ int main(int argc, const char * argv[]) {
     bam1_t* bam_alignment; /* Structure for one alignment */
     
     // Needs initialization
-    char *path = "~/HG002.GRCh38.300x.bam"; /* input SAM/BAM/CRAM file name */
-    char *fai_file; /* file name for the reference genome FAI index as generated using,
+    char *path = "/home/akmuhammet/HG002.GRCh38.300x.bam"; /* input SAM/BAM/CRAM file name */
+    char *fai_file = "/mnt/compgen/inhouse/share/rg_annot/b38/human_v38.fasta.fai"; /* file name for the reference genome FAI index as generated using,
                        e.g., samtools faidx ref.fa */
     
     // Initialization
@@ -37,16 +37,23 @@ int main(int argc, const char * argv[]) {
         /* return >= 0 on successfully reading a new record, -1 on end of stream, < -1 on error */
     
     int chrom_id = 1; /* ID of the chromosome as defined in the BAM/CRAM header. First chromosome ID is 0.*/
-    int start = 0; /* starting coordinate: 0-based */
+    int start = 100; /* starting coordinate: 0-based */
     int end = 1000; /* ending coordinate: 0-based */
     iter = sam_itr_queryi( bam_file_index, chrom_id, start, end);
         /* returns NULL if it fails */
-    
+    if (iter == NULL) {
+        printf("Iter is NULL.\n");
+    }
+
     while( sam_itr_next( bam_file, iter, bam_alignment) > 0) {
         bam_alignment_core = bam_alignment->core;
-            /* do other things */
+	printf(bam_alignment_core.pos);
+	printf(" alignment \n");
     }
-    
+
+    if ( !(sam_itr_next( bam_file, iter, bam_alignment) > 0) ) {
+        printf("Not valid iteration.\n");
+    }
     // Cleanup
     sam_itr_destroy( iter);
     
@@ -55,6 +62,6 @@ int main(int argc, const char * argv[]) {
     hts_idx_destroy( bam_file_index); /* free BAM/CRAM index pointer */
     return_value = hts_close( bam_file); /* close the BAM/CRAM file */
     
-    printf("Hello, World!\n");
+    printf("End of the program...\n");
     return 0;
 }
