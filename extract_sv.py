@@ -63,4 +63,4 @@ with open(vcf_f, 'r') as f:
         txt_f.write('\t'.join([sv_id, pos, end, alt, '\t'.join(cipos), '\t'.join(ciend)]) + '\n')
     print('Invalid number of SV', invalid_SV_type) 
 txt_f.close()
-f.close()
+txt_f.close()
