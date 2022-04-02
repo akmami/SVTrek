@@ -4,7 +4,15 @@
 Created on Sat Apr  2 12:41:43 2022
 
 @author: akmami
+
+    run python extract_sv.py -i input.vcf [-o output.txt]
+or
+    run python extract_sv.py --input input.vcf [--output output.txt]
+
+Default output file is named output.txt
+
 """
+
 import sys
 import argparse
 
