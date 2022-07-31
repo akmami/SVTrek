@@ -4,15 +4,35 @@
 #include <htslib/sam.h>
 #include <htslib/bgzf.h>
 #include <inttypes.h>
+#include <filesystem>
+
 /**
 
     run ./sveldt /mnt/storage1/projects/giab/pacbio/HG002/HG002_PacBio_GRCh38.bam HG002_sv_summary.txt del > out.txt
-
+ 
+    run ./sveldt --bam bam_file --vcf vcf_file --output output_file_name(default_output.txt)
 */
 
 int main(int argc, char *argv[]){
 
     printf("# Program begins...\n");
+    
+    if (argc != 7 && argc != 5) {
+        std::cout << "Missing parameters. Please run the program as: " << std::endl;
+        std::cout << "./sveldt --bam bam_file --vcf vcf_file --output output_file_name(default_output.txt)" << std::endl;
+        return -1;
+    }
+    
+    if (argv[1] != "--bam" || argv[3] != "--vcf") {
+        std::cout << "Wrong input format. Please run the program as: " << std::endl;
+        std::cout << "./sveldt --bam bam_file --vcf vcf_file --output output_file_name(default_output.txt)" << std::endl;
+        return -1;
+    }
+    
+    std::filesystem::path p("the_file");
+    if ( !std::filesystem::exists(p) ) {
+        
+    }
 
     samFile *fp_in = hts_open(argv[1],"r");     //open bam file
     bam_hdr_t *bamHdr = sam_hdr_read(fp_in);     //read header
