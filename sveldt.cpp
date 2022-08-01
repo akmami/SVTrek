@@ -8,12 +8,26 @@
 #include <iostream>
 
 using namespace std;
+
 /**
 
     run ./sveldt /mnt/storage1/projects/giab/pacbio/HG002/HG002_PacBio_GRCh38.bam HG002_sv_summary.txt del > out.txt
  
     run ./sveldt --bam bam_file --vcf vcf_file --output output_file_name(default_output.txt)
 */
+
+// MARK: - helper function declaration
+
+bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
+
+// MARK: - global variables
+
+samFile *fp_in;
+bam_hdr_t *bamHdr;
+hts_idx_t *bam_file_index;
+bam1_t *aln;
+
+// MARK: - main program
 
 int main(int argc, char *argv[]){
 
@@ -43,11 +57,11 @@ int main(int argc, char *argv[]){
         return -1;
     }
     
-    samFile *fp_in = hts_open(argv[1],"r");     //open bam file
-    bam_hdr_t *bamHdr = sam_hdr_read(fp_in);     //read header
-    hts_idx_t *bam_file_index = sam_index_load( fp_in, argv[1] );
-    bam1_t *aln = bam_init1();             //initialize an alignment
-
+    fp_in = hts_open(argv[1],"r");     //open bam file
+    bamHdr = sam_hdr_read(fp_in);     //read header
+    bam_file_index = sam_index_load( fp_in, argv[1] );
+    aln = bam_init1();             //initialize an alignment
+/*
     FILE *sv_fp_in = fopen(argv[2], "r"); // open sv file
     char line[255];
     size_t len = 0;
@@ -56,7 +70,8 @@ int main(int argc, char *argv[]){
         printf("# There is no such sv file.\n");
         return -1;
     }
-
+**/
+    
     int comp;
     int chrom;
     char *id;
@@ -73,8 +88,7 @@ int main(int argc, char *argv[]){
 
     // skip first line
     char *first_line = fgets(line, sizeof(line), sv_fp_in);
-    printf("# ID\tCHROM\tPOS\tEND\tALT\tOUTER_START\tINNER_START\tINNER_END\tOUTER_END\n");
-
+    
     while (fgets(line, sizeof(line), sv_fp_in) != NULL) {
         id = strtok(line, "\t");
         chrom = atoi(strtok(NULL, "\t")) - 1;
@@ -255,4 +269,60 @@ int main(int argc, char *argv[]){
     hts_idx_destroy(bam_file_index);
     bam_hdr_destroy(bamHdr);
     return 0;
+}
+
+// MARK: - implementation of helper functions
+
+bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
+
+    // sam_read1 variables
+    int32_t pos;
+    char *chr;
+    size_t read_len;
+    uint32_t flag;
+    
+    hts_itr_t *iter;
+    iter = sam_itr_queryi( bam_file_index, chrom, outer_start - 40000, inner_start + 2000);
+    
+    if (iter == NULL) {
+        printf("# invalid interval, iter is null\n");
+    } else {
+        while (sam_itr_next( fp_in, iter, aln ) > 0) {
+            pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+            
+            // If read ends in between (outer_start, inner_start)
+            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
+                int reference_pos = pos;
+                for ( int i = 0; i < aln->core.n_cigar; i++ ) {
+                    if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
+                        reference_pos += bam_cigar_oplen( cigar[i] );
+                    }
+                }
+                if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
+                    printf("%s\t%d\t%d\t-1\n", id, chrom + 1, reference_pos + 1);
+                }
+            }
+        }
+    }
+    sam_itr_destroy(iter);
+    
+    iter = sam_itr_queryi( bam_file_index, chrom, inner_end - 2000, outer_end + 2000);
+    if (iter == NULL) {
+        printf("# invalid interval, iter is null\n");
+    } else {
+        while (sam_itr_next( fp_in, iter, aln ) > 0) {
+            pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+            
+            // If read starts in between (inner_end, outer_end)
+            if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end  ) {
+                printf("%s\t%d\t%d\t1\n", id, chrom + 1, pos + 1);
+            }
+        }
+    }
+    sam_itr_destroy(iter);
+    
+    
+    return true;
 }
