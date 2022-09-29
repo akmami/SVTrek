@@ -19,9 +19,9 @@ using namespace std;
 // MARK: - helper function declaration
 
 int run(char argv2[], char argv4[]);
-bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end);
-bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end);
-bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end);
+bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end);
+bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end);
+bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end);
 
 // MARK: - global variables
 
@@ -125,7 +125,7 @@ int run(char argv2[], char argv4[]) {
     bam_hdr_destroy(bamHdr);
 }
 
-bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end) {
+bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
 
     // sam_read1 variables
     int32_t pos;
@@ -179,7 +179,7 @@ bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer
 }
 
 
-bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end) {
+bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
 
     // sam_read1 variables
     int32_t pos;
@@ -232,7 +232,7 @@ bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_
     return true;
 }
 
-bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end) {
+bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
 
     // sam_read1 variables
     int32_t pos;
