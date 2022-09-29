@@ -40,11 +40,7 @@ This might cause permission errors if you installed the htslib in machines where
     # instead of 
     make install
     
-    # run 
-    make install --prefix=DIR
-    
-    or 
-    
+    # run     
     make prefix=DIR install
 
 ```
