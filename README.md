@@ -33,7 +33,7 @@ Then, go to the htslib directory to compile library.
 The official installation documentation suggest to rum ./configure command if you need optional functionality to be enabled. If not, you can skip the command.
 
 The default installation directory of libraries,library header files, utilities, several manual pages, and a pkgconfig is /usr/local.
-This might cause permission errors if you installed the htslib in machines where you do not own the root priviligde. Also, this configuration installs the library globally, but, you can change the directory by running following command 
+This might cause permission errors if you installed the htslib in machines where you do not own the root privilege. Also, this configuration installs the library globally, but, you can change the directory by running following command 
 
 ```
 
