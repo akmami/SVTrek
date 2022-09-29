@@ -123,6 +123,8 @@ int run(char argv2[], char argv4[]) {
     sam_close(fp_in);
     hts_idx_destroy(bam_file_index);
     bam_hdr_destroy(bamHdr);
+    
+    return 0;
 }
 
 bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
