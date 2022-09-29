@@ -18,10 +18,10 @@ using namespace std;
 
 // MARK: - helper function declaration
 
-void run();
-bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
-bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
-bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
+int run(char argv2[], char argv4[]);
+bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end);
+bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end);
+bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end);
 
 // MARK: - global variables
 
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
 
 // MARK: - implementation of helper functions
 
-void run(char argv2[], char argv4[]) {
+int run(char argv2[], char argv4[]) {
     fp_in = hts_open(argv2,"r");          //open bam file
     bamHdr = sam_hdr_read(fp_in);           //read header
     bam_file_index = sam_index_load( fp_in, argv2 );
@@ -125,7 +125,7 @@ void run(char argv2[], char argv4[]) {
     bam_hdr_destroy(bamHdr);
 }
 
-bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
+bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end) {
 
     // sam_read1 variables
     int32_t pos;
@@ -175,15 +175,21 @@ bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer
     }
     sam_itr_destroy(iter);
     
-    
     return true;
 }
 
 
-bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
+bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end) {
 
+    // sam_read1 variables
+    int32_t pos;
+    char *chr;
+    size_t read_len;
+    uint32_t flag;
+    
     hts_itr_t *iter;
     iter = sam_itr_queryi( bam_file_index, chrom, outer_start - 40000, inner_start + 2000);
+    
     if (iter == NULL) {
         printf("# invalid interval, iter is null\n");
     } else {
@@ -223,12 +229,20 @@ bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_
     }
     sam_itr_destroy(iter);
     
+    return true;
 }
 
-bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
+bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int inner_end) {
 
+    // sam_read1 variables
+    int32_t pos;
+    char *chr;
+    size_t read_len;
+    uint32_t flag;
+    
     hts_itr_t *iter;
     iter = sam_itr_queryi( bam_file_index, chrom - 1, outer_start - 40000, inner_start + 2000);
+    
     if (iter == NULL) {
         printf("# invalid interval, iter is null\n");
     } else {
@@ -285,4 +299,6 @@ bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer
         }
     }
     sam_itr_destroy(iter);
+    
+    return true;
 }
