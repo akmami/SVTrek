@@ -18,7 +18,10 @@ using namespace std;
 
 // MARK: - helper function declaration
 
+void run();
 bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
+bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
+bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end);
 
 // MARK: - global variables
 
@@ -57,12 +60,20 @@ int main(int argc, char *argv[]){
         return -1;
     }
     
-    fp_in = hts_open(argv[1],"r");     //open bam file
-    bamHdr = sam_hdr_read(fp_in);     //read header
-    bam_file_index = sam_index_load( fp_in, argv[1] );
-    aln = bam_init1();             //initialize an alignment
-/*
-    FILE *sv_fp_in = fopen(argv[2], "r"); // open sv file
+    run(argv[2], argv[4]);
+    
+    return 0;
+}
+
+// MARK: - implementation of helper functions
+
+void run(char argv2[], char argv4[]) {
+    fp_in = hts_open(argv2,"r");          //open bam file
+    bamHdr = sam_hdr_read(fp_in);           //read header
+    bam_file_index = sam_index_load( fp_in, argv2 );
+    aln = bam_init1();                      //initialize an alignment
+    
+    FILE *sv_fp_in = fopen(argv4, "r");   // open sv file
     char line[255];
     size_t len = 0;
     ssize_t read;
@@ -70,7 +81,6 @@ int main(int argc, char *argv[]){
         printf("# There is no such sv file.\n");
         return -1;
     }
-**/
     
     int comp;
     int chrom;
@@ -90,6 +100,7 @@ int main(int argc, char *argv[]){
     char *first_line = fgets(line, sizeof(line), sv_fp_in);
     
     while (fgets(line, sizeof(line), sv_fp_in) != NULL) {
+        /*
         id = strtok(line, "\t");
         chrom = atoi(strtok(NULL, "\t")) - 1;
         sv_pos = atoi(strtok(NULL, "\t")) - 1;
@@ -101,165 +112,9 @@ int main(int argc, char *argv[]){
         outer_end = atoi(strtok(NULL, "\t")) + sv_end - 1;
         
         printf("# %s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\n", id, chrom + 1, alt, sv_pos + 1, sv_end + 1, outer_start + 1, inner_start + 1, inner_end + 1, outer_end + 1);
+        */
         
-        // ----------------------------------------------------------------------------------------------------------------------
-        // Deletion
-        // ----------------------------------------------------------------------------------------------------------------------
-        
-        if ( strcmp(alt, "del") == 0 ) {
-            hts_itr_t *iter;
-            iter = sam_itr_queryi( bam_file_index, chrom, outer_start - 40000, inner_start + 2000);
-            if (iter == NULL) {
-                printf("# invalid interval, iter is null\n");
-            } else {
-                while (sam_itr_next( fp_in, iter, aln ) > 0) {
-                    pos = aln->core.pos;
-                    uint32_t *cigar = bam_get_cigar(aln);
-
-                    if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
-                        int reference_pos = pos;
-                        for ( int i = 0; i < aln->core.n_cigar; i++ ) {
-                            if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
-                                reference_pos += bam_cigar_oplen( cigar[i] );
-                            }
-                        }
-                        if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
-                            printf("%s\t%d\t%d\t-1\n", id, chrom + 1, reference_pos + 1);
-                        }
-                    }
-                }
-            }
-            sam_itr_destroy(iter);
-            
-            iter = sam_itr_queryi( bam_file_index, chrom, inner_end - 2000, outer_end + 2000);
-            if (iter == NULL) {
-                printf("# invalid interval, iter is null\n");
-            } else {
-                while (sam_itr_next( fp_in, iter, aln ) > 0) {
-                    pos = aln->core.pos;
-                    uint32_t *cigar = bam_get_cigar(aln);
-
-                    // Even if the read starts with soft clip, the pos is matched with aligned part
-                    // Hence, some reads can be without soft clip and directly matched with the reference genome.
-                    if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end ) {
-                        printf("%s\t%d\t%d\t1\n", id, chrom + 1, pos + 1);
-                    }
-                }
-            }
-            sam_itr_destroy(iter);
-        }
-        
-        // ----------------------------------------------------------------------------------------------------------------------
-        // Insertion
-        // ----------------------------------------------------------------------------------------------------------------------
-        
-        if ( strcmp(alt, "ins") == 0 ) {
-            hts_itr_t *iter;
-            iter = sam_itr_queryi( bam_file_index, chrom, outer_start - 40000, inner_start + 2000);
-            if (iter == NULL) {
-                printf("# invalid interval, iter is null\n");
-            } else {
-                while (sam_itr_next( fp_in, iter, aln ) > 0) {
-                    pos = aln->core.pos;
-                    uint32_t *cigar = bam_get_cigar(aln);
-                    
-                    // If read ends in between (outer_start, inner_start)
-                    if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
-                        int reference_pos = pos;
-                        for ( int i = 0; i < aln->core.n_cigar; i++ ) {
-                            if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
-                                reference_pos += bam_cigar_oplen( cigar[i] );
-                            }
-                        }
-                        if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
-                            printf("%s\t%d\t%d\t-1\n", id, chrom + 1, reference_pos + 1);
-                        }
-                    }
-                }
-            }
-            sam_itr_destroy(iter);
-            
-            iter = sam_itr_queryi( bam_file_index, chrom, inner_end - 2000, outer_end + 2000);
-            if (iter == NULL) {
-                printf("# invalid interval, iter is null\n");
-            } else {
-                while (sam_itr_next( fp_in, iter, aln ) > 0) {
-                    pos = aln->core.pos;
-                    uint32_t *cigar = bam_get_cigar(aln);
-                    
-                    // If read starts in between (inner_end, outer_end)
-                    if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end  ) {
-                        printf("%s\t%d\t%d\t1\n", id, chrom + 1, pos + 1);
-                    }
-                }
-            }
-            sam_itr_destroy(iter);
-        }
-        
-        // ----------------------------------------------------------------------------------------------------------------------
-        // Inversion
-        // ----------------------------------------------------------------------------------------------------------------------
-        
-        if ( strcmp(alt, "inv") == 0 ) {
-            hts_itr_t *iter;
-            iter = sam_itr_queryi( bam_file_index, chrom - 1, outer_start - 40000, inner_start + 2000);
-            if (iter == NULL) {
-                printf("# invalid interval, iter is null\n");
-            } else {
-                while (sam_itr_next( fp_in, iter, aln ) > 0) {
-                    pos = aln->core.pos;
-                    uint32_t *cigar = bam_get_cigar(aln);
-                    
-                    // If read ends in between (outer_start, inner_start)
-                    if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
-                        int reference_pos = pos;
-                        for ( int i = 0; i < aln->core.n_cigar; i++ ) {
-                            if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
-                                reference_pos += bam_cigar_oplen( cigar[i] );
-                            }
-                        }
-                        if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
-                            printf("%s\t%d\t%d\t-1\n", id, chrom + 1, reference_pos + 1);
-                        }
-                    }
-
-                    // If read starts in between (outer_start, inner_start)
-                    if ( bam_cigar_op( cigar[0] ) == 4 && outer_start <= pos && pos <= inner_start ) {
-                        printf("%s\t%d\t%d\t-1\n", id, chrom + 1, pos + 1);
-                    }
-                }
-            }
-            sam_itr_destroy(iter);
-            
-            iter = sam_itr_queryi( bam_file_index, chrom, inner_end - 40000, outer_end + 2000);
-            if (iter == NULL) {
-                printf("# invalid interval, iter is null\n");
-            } else {
-                while (sam_itr_next( fp_in, iter, aln ) > 0) {
-                    pos = aln->core.pos;
-                    uint32_t *cigar = bam_get_cigar(aln);
-                    
-                    // If read ends in between (inner_end, outter_end)
-                    if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
-                        int reference_pos = pos;
-                        for ( int i = 0; i < aln->core.n_cigar; i++ ) {
-                            if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
-                                reference_pos += bam_cigar_oplen( cigar[i] );
-                            }
-                        }
-                        if ( inner_end <= reference_pos && reference_pos <= outer_end ) {
-                            printf("%s\t%d\t%d\t1\n", id, chrom + 1, reference_pos + 1);
-                        }
-                    }
-                    
-                    // If read starts in between (inner_end, outter_end)
-                    if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end ) {
-                        printf("%s\t%d\t%d\t1\n", id, chrom + 1, pos + 1);
-                    }
-                }
-            }
-            sam_itr_destroy(iter);
-        }
+        printf("%s\n", line);
     }
     printf("# End of the program execution\n");
 
@@ -268,10 +123,7 @@ int main(int argc, char *argv[]){
     sam_close(fp_in);
     hts_idx_destroy(bam_file_index);
     bam_hdr_destroy(bamHdr);
-    return 0;
 }
-
-// MARK: - implementation of helper functions
 
 bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
 
@@ -325,4 +177,112 @@ bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer
     
     
     return true;
+}
+
+
+bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
+
+    hts_itr_t *iter;
+    iter = sam_itr_queryi( bam_file_index, chrom, outer_start - 40000, inner_start + 2000);
+    if (iter == NULL) {
+        printf("# invalid interval, iter is null\n");
+    } else {
+        while (sam_itr_next( fp_in, iter, aln ) > 0) {
+            pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+
+            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
+                int reference_pos = pos;
+                for ( int i = 0; i < aln->core.n_cigar; i++ ) {
+                    if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
+                        reference_pos += bam_cigar_oplen( cigar[i] );
+                    }
+                }
+                if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
+                    printf("%s\t%d\t%d\t-1\n", id, chrom + 1, reference_pos + 1);
+                }
+            }
+        }
+    }
+    sam_itr_destroy(iter);
+    
+    iter = sam_itr_queryi( bam_file_index, chrom, inner_end - 2000, outer_end + 2000);
+    if (iter == NULL) {
+        printf("# invalid interval, iter is null\n");
+    } else {
+        while (sam_itr_next( fp_in, iter, aln ) > 0) {
+            pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+
+            // Even if the read starts with soft clip, the pos is matched with aligned part
+            // Hence, some reads can be without soft clip and directly matched with the reference genome.
+            if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end ) {
+                printf("%s\t%d\t%d\t1\n", id, chrom + 1, pos + 1);
+            }
+        }
+    }
+    sam_itr_destroy(iter);
+    
+}
+
+bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_start, int inner_end) {
+
+    hts_itr_t *iter;
+    iter = sam_itr_queryi( bam_file_index, chrom - 1, outer_start - 40000, inner_start + 2000);
+    if (iter == NULL) {
+        printf("# invalid interval, iter is null\n");
+    } else {
+        while (sam_itr_next( fp_in, iter, aln ) > 0) {
+            pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+            
+            // If read ends in between (outer_start, inner_start)
+            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
+                int reference_pos = pos;
+                for ( int i = 0; i < aln->core.n_cigar; i++ ) {
+                    if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
+                        reference_pos += bam_cigar_oplen( cigar[i] );
+                    }
+                }
+                if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
+                    printf("%s\t%d\t%d\t-1\n", id, chrom + 1, reference_pos + 1);
+                }
+            }
+
+            // If read starts in between (outer_start, inner_start)
+            if ( bam_cigar_op( cigar[0] ) == 4 && outer_start <= pos && pos <= inner_start ) {
+                printf("%s\t%d\t%d\t-1\n", id, chrom + 1, pos + 1);
+            }
+        }
+    }
+    sam_itr_destroy(iter);
+    
+    iter = sam_itr_queryi( bam_file_index, chrom, inner_end - 40000, outer_end + 2000);
+    if (iter == NULL) {
+        printf("# invalid interval, iter is null\n");
+    } else {
+        while (sam_itr_next( fp_in, iter, aln ) > 0) {
+            pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+            
+            // If read ends in between (inner_end, outter_end)
+            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
+                int reference_pos = pos;
+                for ( int i = 0; i < aln->core.n_cigar; i++ ) {
+                    if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
+                        reference_pos += bam_cigar_oplen( cigar[i] );
+                    }
+                }
+                if ( inner_end <= reference_pos && reference_pos <= outer_end ) {
+                    printf("%s\t%d\t%d\t1\n", id, chrom + 1, reference_pos + 1);
+                }
+            }
+            
+            // If read starts in between (inner_end, outter_end)
+            if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end ) {
+                printf("%s\t%d\t%d\t1\n", id, chrom + 1, pos + 1);
+            }
+        }
+    }
+    sam_itr_destroy(iter);
 }
