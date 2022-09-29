@@ -1,8 +1,8 @@
 CC=gcc
 CFLAGS =  -O3 -funroll-loops -g -I htslib
 LDFLAGS = htslib/libhts.a -lz -lm -lpthread -llzma -lbz2
-SOURCES = sveldt.c
-OBJECTS = $(SOURCES:.c=.o)
+SOURCES = sveldt.cpp
+OBJECTS = $(SOURCES:.cpp=.o)
 EXECUTABLE = sveldt
 
 all: $(SOURCES) $(EXECUTABLE)
@@ -11,5 +11,5 @@ all: $(SOURCES) $(EXECUTABLE)
 $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
 
-.c.o:
+.cpp.o:
 	$(CC) -c $(CFLAGS) $< -o $@
