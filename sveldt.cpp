@@ -13,9 +13,6 @@
 using namespace std;
 
 /**
-
-    run ./sveldt /mnt/storage1/projects/giab/pacbio/HG002/HG002_PacBio_GRCh38.bam HG002_sv_summary.txt del > out.txt
- 
     run ./sveldt --bam bam_file --vcf vcf_file --output output_file_name(default_output.txt)
 */
 
