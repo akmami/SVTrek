@@ -6,6 +6,9 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include <iostream>
+#include <fstream>
+#include <boost/algorithm/string.hpp>
+#include <vector>
 
 using namespace std;
 
@@ -19,9 +22,10 @@ using namespace std;
 // MARK: - helper function declaration
 
 int run(char argv2[], char argv4[]);
-bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end);
-bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end);
-bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end);
+bool process_line(string line);
+bool insertion(char *id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
+bool deletion(char *id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
+bool inversion(char *id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
 
 // MARK: - global variables
 
@@ -68,57 +72,26 @@ int main(int argc, char *argv[]){
 // MARK: - implementation of helper functions
 
 int run(char argv2[], char argv4[]) {
-    fp_in = hts_open(argv2,"r");          //open bam file
+    // init global variables
+    fp_in = hts_open(argv2,"r");            //open bam file
     bamHdr = sam_hdr_read(fp_in);           //read header
     bam_file_index = sam_index_load( fp_in, argv2 );
     aln = bam_init1();                      //initialize an alignment
     
-    FILE *sv_fp_in = fopen(argv4, "r");   // open sv file
-    char line[255];
-    size_t len = 0;
-    ssize_t read;
-    if (sv_fp_in == NULL) {
-        printf("# There is no such sv file.\n");
-        return -1;
+    ifstream vcf_file(argv4);                   // open sv file
+    string line;
+    
+    while (getline(vcf_file, line)) {
+        if (line.at(0) == '#')
+            continue;
+        process_line(line);
     }
     
-    int comp;
-    int chrom;
-    char *id;
-    int sv_pos, sv_end;
-    char *alt;
-    int outer_start, inner_start;
-    int inner_end, outer_end;
-
-    // sam_read1 variables
-    int32_t pos;
-    char *chr;
-    size_t read_len;
-    uint32_t flag;
-
-    // skip first line
-    char *first_line = fgets(line, sizeof(line), sv_fp_in);
+    cout << "# End of the program execution" << endl;
     
-    while (fgets(line, sizeof(line), sv_fp_in) != NULL) {
-        /*
-        id = strtok(line, "\t");
-        chrom = atoi(strtok(NULL, "\t")) - 1;
-        sv_pos = atoi(strtok(NULL, "\t")) - 1;
-        sv_end = atoi(strtok(NULL, "\t")) - 1;
-        alt = strtok(NULL, "\t");
-        outer_start = atoi(strtok(NULL, "\t")) + sv_pos - 1;
-        inner_start = atoi(strtok(NULL, "\t")) + sv_pos - 1 ;
-        inner_end = atoi(strtok(NULL, "\t")) + sv_end - 1;
-        outer_end = atoi(strtok(NULL, "\t")) + sv_end - 1;
-        
-        printf("# %s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\n", id, chrom + 1, alt, sv_pos + 1, sv_end + 1, outer_start + 1, inner_start + 1, inner_end + 1, outer_end + 1);
-        */
-        
-        printf("%s\n", line);
-    }
-    printf("# End of the program execution\n");
-
-    fclose(sv_fp_in);
+    vcf_file.close();
+    
+    // de-init global variables, prevent memory leaks
     bam_destroy1(aln);
     sam_close(fp_in);
     hts_idx_destroy(bam_file_index);
@@ -127,7 +100,74 @@ int run(char argv2[], char argv4[]) {
     return 0;
 }
 
-bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
+bool process_line(string line) {
+    
+    // extract data
+    if (line.find("IMPRECISE") == string::npos || line.find("SVLEN") != string::npos || line.find("CIPOS") != string::npos) {
+        
+        // local variables
+        int comp, chrom, sv_pos;
+        string id, alt;
+        
+        vector<string> splitted_line;
+        boost::split(splitted_line, line, boost::is_any_of("\t"));
+        try {
+            chrom = stoi(splitted_line[0]);
+        } catch (...) {
+            try {
+                chrom = stoi(splitted_line[0].substr(3));
+            } catch (...) {
+                // unlucky :(
+                if ( (splitted_line[0].length() && (splitted_line[0][0] == 'X' || splitted_line[0][0] == 'x') ) ||
+                        splitted_line[0].length() == 4 && (splitted_line[0][3] == 'X' || splitted_line[0][3] == 'x') ) {
+                    // chrom is X
+                } else if ( ( splitted_line[0].length() && (splitted_line[0][0] == 'Y' || splitted_line[0][0] == 'y') ) ||
+                           ( splitted_line[0].length() == 4 && (splitted_line[0][3] == 'Y' || splitted_line[0][3] == 'y') ) ){
+                    // chrom is Y
+                } else {
+                    cout << "Chromosome could not be cinverted into integer. CHROM tag : " << splitted_line[0] << endl;
+                }
+                return false;
+            }
+        }
+        try {
+            sv_pos = stoi(splitted_line[1]);      // it is set but never used
+        } catch (...) {
+            sv_pos = -1;
+            return false;
+        }
+        
+        id = splitted_line[2];
+        alt = splitted_line[4];
+        
+        // CIPOS and CIEND info retrieval part
+        int outer_start, inner_start, inner_end, outer_end;
+        
+        
+        
+        // call function according to sv type
+        int type_index = splitted_line[7].find("SVTYPE");
+        
+        if (type_index == -1) {
+            return false;
+        }
+        
+        if ( splitted_line[7].find("INS", type_index + 7) != -1 || splitted_line[7].find("ins", type_index + 7) != -1 ) {
+            insertion(id, chrom, outer_start, inner_start, inner_end, outer_end);
+        } else if ( splitted_line[7].find("DEL", type_index + 7) != -1 || splitted_line[7].find("del", type_index + 7) != -1 ) {
+            deletion(id, chrom, outer_start, inner_start, inner_end, outer_end);
+        } else if ( splitted_line[7].find("INV", type_index + 7) != -1 || splitted_line[7].find("inv", type_index + 7) != -1 ) {
+            inversion(id, chrom, outer_start, inner_start, inner_end, outer_end);
+        } else {
+            // Other type of sv
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool insertion(char *id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
 
     // sam_read1 variables
     int32_t pos;
@@ -181,7 +221,7 @@ bool insertion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer
 }
 
 
-bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
+bool deletion(char *id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
 
     // sam_read1 variables
     int32_t pos;
@@ -234,7 +274,7 @@ bool deletion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_
     return true;
 }
 
-bool inversion(char *id, int chrom, char *alt, int sv_pos, int sv_end, int outer_start, int inner_start, int inner_end, int outer_end) {
+bool inversion(char *id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
 
     // sam_read1 variables
     int32_t pos;
