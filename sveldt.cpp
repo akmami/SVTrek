@@ -11,16 +11,28 @@
 #include <cmath>
 #include "argh.h"
 
+//                                Consumes query   reference   Op
+#define CIGAR_ALIGNMENT_MATCH       0   //  yes     yes         M
+#define CIGAR_INSERTION             1   //  yes     no          I
+#define CIGAR_DELETION              2   //  no      yes         D
+#define CIGAR_SKIPPED               3   //  no      yes         N
+#define CIGAR_SOFT_CLIP             4   //  yes     no          S
+#define CIGAR_HARD_CLIP             5   //  no      no          H
+#define CIGAR_PADDING               6   //  no      no          P
+#define CIGAR_SEQUENCE_MATCH        7   //  yes     yes         =
+#define CIGAR_SEQUENCE_MISMATCH     8   //  yes     yes         X
+
+#define FLAG_MULTIPLE_SEGMENTS          0x1
+#define FLAG_SECONDARY_ALIGNMENT        0x100
+#define FLAG_SUPPLEMENTARY_ALIGNMENT    0x800
+
+
 #define WIDER_INTERVAL          40000
 #define NARROW_INTERVAL         2000
 #define CONSENSUS_INTEVAL       5
-#define CONSENSUS_COUNT_PERC    0.4
+#define CONSENSUS_COUNT_PERC    0.3
 
 using namespace std;
-
-/**
-    run ./sveldt --bam bam_file --vcf vcf_file --output output_file_name(default_output.txt)
-*/
 
 // MARK: - helper function declaration
 
@@ -131,10 +143,10 @@ bool process_line(string line) {
             } catch (...) {
                 // unlucky :(
                 if ( (splitted_line[0].length() && (splitted_line[0][0] == 'X' || splitted_line[0][0] == 'x') ) ||
-                        splitted_line[0].length() == 4 && (splitted_line[0][3] == 'X' || splitted_line[0][3] == 'x') ) {
+                        splitted_line[0].length() == CIGAR_SOFT_CLIP && (splitted_line[0][3] == 'X' || splitted_line[0][3] == 'x') ) {
                     // chrom is X
                 } else if ( ( splitted_line[0].length() && (splitted_line[0][0] == 'Y' || splitted_line[0][0] == 'y') ) ||
-                           ( splitted_line[0].length() == 4 && (splitted_line[0][3] == 'Y' || splitted_line[0][3] == 'y') ) ){
+                           ( splitted_line[0].length() == CIGAR_SOFT_CLIP && (splitted_line[0][3] == 'Y' || splitted_line[0][3] == 'y') ) ){
                     // chrom is Y
                 } else {
                     cout << "# Chromosome could not be converted into integer. CHROM tag : " << splitted_line[0] << endl;
@@ -258,10 +270,10 @@ int find_start(int chrom, int outer_start, int inner_start) {
             uint32_t *cigar = bam_get_cigar(aln);
             
             // If read ends in between (outer_start, inner_start)
-            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
+            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == CIGAR_SOFT_CLIP) {
                 int reference_pos = pos;
                 for ( int i = 0; i < aln->core.n_cigar; i++ ) {
-                    if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
+                    if ( bam_cigar_op( cigar[i] ) != CIGAR_INSERTION && bam_cigar_op( cigar[i] ) != CIGAR_SOFT_CLIP && bam_cigar_op( cigar[i] ) != CIGAR_HARD_CLIP && bam_cigar_op( cigar[i] ) != CIGAR_PADDING ) {
                         reference_pos += bam_cigar_oplen( cigar[i] );
                     }
                 }
@@ -298,7 +310,7 @@ int find_end(int chrom, int inner_end, int outer_end) {
             uint32_t *cigar = bam_get_cigar(aln);
             
             // If read starts in between (inner_end, outer_end)
-            if ( bam_cigar_op( cigar[0] ) == 4 && inner_end <= pos && pos <= outer_end  ) {
+            if ( bam_cigar_op( cigar[0] ) == CIGAR_SOFT_CLIP && inner_end <= pos && pos <= outer_end  ) {
                 end_positions.push_back(pos+1);
             }
         }
@@ -334,7 +346,7 @@ int find_start_or_end(int chrom, int start, int end) {
             if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
                 int reference_pos = pos;
                 for ( int i = 0; i < aln->core.n_cigar; i++ ) {
-                    if ( bam_cigar_op( cigar[i] ) != 1 && bam_cigar_op( cigar[i] ) != 4 && bam_cigar_op( cigar[i] ) != 5 && bam_cigar_op( cigar[i] ) != 6 ) {
+                    if ( bam_cigar_op( cigar[i] ) != CIGAR_INSERTION && bam_cigar_op( cigar[i] ) != CIGAR_SOFT_CLIP && bam_cigar_op( cigar[i] ) != CIGAR_HARD_CLIP && bam_cigar_op( cigar[i] ) != CIGAR_PADDING ) {
                         reference_pos += bam_cigar_oplen( cigar[i] );
                     }
                 }
@@ -344,7 +356,7 @@ int find_start_or_end(int chrom, int start, int end) {
             }
 
             // If read starts in between (start, end)
-            if ( bam_cigar_op( cigar[0] ) == 4 && start <= pos && pos <= end ) {
+            if ( bam_cigar_op( cigar[0] ) == CIGAR_SOFT_CLIP && start <= pos && pos <= end ) {
                 positions.push_back(pos);
             }
         }
@@ -386,7 +398,7 @@ bool insertion(string id, int chrom, int outer_start, int inner_start, int inner
     int refined_start = find_start(chrom, outer_start, inner_start);
     int refined_end = find_end(chrom, inner_end, outer_end);
     
-    cout << id << "\t" << "ins\t" << chrom << "\t" << refined_start << "\t" << refined_end << endl;
+    cout << chrom << "\t" <<  id << "\t" << "ins" << "\t" << refined_start << "\t" <<  refined_end << endl;
     
     return true;
 }
@@ -395,7 +407,7 @@ bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_
     
     int refined_pos = find_start_or_end(chrom, outer_start, inner_start);
     
-    cout << id << "\t" << "del\t" << chrom << "\t" << refined_pos << endl;
+    cout << chrom << "\t" << id << "\t" << "del" << "\t" << refined_pos << endl;
     
     return true;
 }
@@ -406,7 +418,7 @@ bool inversion(string id, int chrom, int outer_start, int inner_start, int inner
     int refined_start = find_start_or_end(chrom, outer_start, inner_start);
     int refined_end = find_start_or_end(chrom, inner_end, outer_end);
     
-    cout << id << "\t" << "inv\t" << chrom << "\t" << refined_start << "\t" << refined_end << endl;
+    cout << chrom << "\t" << id << "\t" << "inv" << "\t" << refined_start << "\t" <<  refined_end << endl;
     
     return true;
 }
