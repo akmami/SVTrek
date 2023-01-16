@@ -29,8 +29,9 @@
 
 #define WIDER_INTERVAL          40000
 #define NARROW_INTERVAL         2000
-#define CONSENSUS_INTEVAL       5
-#define CONSENSUS_COUNT_PERC    0.3
+#define CONSENSUS_INTEVAL       3
+#define CONSENSUS_MIN_COUNT     2
+//#define CONSENSUS_COUNT_PERC    0.3
 
 using namespace std;
 
@@ -177,6 +178,9 @@ bool process_line(string line) {
         
         // Retrieve END
         int sv_end_start = splitted_line[7].find("END=");
+        if (sv_end_start != 0) {
+            sv_end_start = splitted_line[7].find(";END=");
+        }
         int sv_end_end = splitted_line[7].find(";", sv_end_start+1);
         
         if (sv_end_start == -1) {
@@ -187,7 +191,11 @@ bool process_line(string line) {
         }
         
         try {
-            sv_end = stoi( splitted_line[7].substr(sv_end_start+4, sv_end_end) );
+            if (sv_end_start == 0) {
+                sv_end = stoi( splitted_line[7].substr(sv_end_start+4, sv_end_end) );
+            } else {
+                sv_end = stoi( splitted_line[7].substr(sv_end_start+5, sv_end_end) );
+            }
         } catch(...) {
             cout << "# Unable to convert into int" << splitted_line[7].substr(sv_end_start+4, sv_end_end) << endl;
         }
@@ -251,7 +259,7 @@ bool process_line(string line) {
 }
 
 int find_start(int chrom, int outer_start, int inner_start) {
-    
+
     // sam_read1 variables
     int32_t pos;
     char *chr;
@@ -277,6 +285,7 @@ int find_start(int chrom, int outer_start, int inner_start) {
                         reference_pos += bam_cigar_oplen( cigar[i] );
                     }
                 }
+                
                 if ( outer_start <= reference_pos && reference_pos <= inner_start ) {
                     start_positions.push_back(reference_pos+1);
                 }
@@ -284,8 +293,8 @@ int find_start(int chrom, int outer_start, int inner_start) {
         }
     }
     sam_itr_destroy(iter);
+
     
-    sort(start_positions.begin(), start_positions.end());
     
     return consensus(start_positions);
 }
@@ -318,8 +327,6 @@ int find_end(int chrom, int inner_end, int outer_end) {
     
     sam_itr_destroy(iter);
     
-    sort(end_positions.begin(), end_positions.end());
-    
     return consensus(end_positions);
 }
 
@@ -330,9 +337,9 @@ int find_start_or_end(int chrom, int start, int end) {
     char *chr;
     size_t read_len;
     uint32_t flag;
-    
+
     hts_itr_t *iter;
-    iter = sam_itr_queryi( bam_file_index, chrom - 1, start - WIDER_INTERVAL, end + NARROW_INTERVAL);
+    iter = sam_itr_queryi( bam_file_index, chrom - 1, start - NARROW_INTERVAL, end + NARROW_INTERVAL);
     vector<int> positions;
     
     if (iter == NULL) {
@@ -343,7 +350,7 @@ int find_start_or_end(int chrom, int start, int end) {
             uint32_t *cigar = bam_get_cigar(aln);
             
             // If read ends in between (start, end)
-            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == 4) {
+            if ( bam_cigar_op( cigar[aln->core.n_cigar-1] ) == CIGAR_SOFT_CLIP) {
                 int reference_pos = pos;
                 for ( int i = 0; i < aln->core.n_cigar; i++ ) {
                     if ( bam_cigar_op( cigar[i] ) != CIGAR_INSERTION && bam_cigar_op( cigar[i] ) != CIGAR_SOFT_CLIP && bam_cigar_op( cigar[i] ) != CIGAR_HARD_CLIP && bam_cigar_op( cigar[i] ) != CIGAR_PADDING ) {
@@ -354,7 +361,6 @@ int find_start_or_end(int chrom, int start, int end) {
                     positions.push_back(reference_pos+1);
                 }
             }
-
             // If read starts in between (start, end)
             if ( bam_cigar_op( cigar[0] ) == CIGAR_SOFT_CLIP && start <= pos && pos <= end ) {
                 positions.push_back(pos);
@@ -363,16 +369,16 @@ int find_start_or_end(int chrom, int start, int end) {
     }
     sam_itr_destroy(iter);
     
-    sort(positions.begin(), positions.end());
-    
     return consensus(positions);
 }
 
 int consensus(vector<int> locations) {
     int length = locations.size(), i;
-    int consensus = -1, max_count = - 1;
+    int consensus = -1, max_count = CONSENSUS_MIN_COUNT - 1;
     vector<int>::iterator ptr_i;
     vector<int>::iterator ptr_j;
+
+    sort(locations.begin(), locations.end());
     
     for (ptr_i = locations.begin(), i = 0; ptr_i<locations.end(); ptr_i++, i++) {
         int item_i = *ptr_i;
@@ -384,7 +390,7 @@ int consensus(vector<int> locations) {
         
         sum = (*ptr_i) + round(sum / count);
         
-        if (count > CONSENSUS_COUNT_PERC * length && count > max_count) {
+        if (count > max_count) {
             max_count = count;
             consensus = sum;
         }
