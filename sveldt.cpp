@@ -39,7 +39,7 @@ using namespace std;
 
 int run(char const *bam, char const *vcf);
 bool process_line(string line);
-bool insertion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
+bool insertion(string id, int chrom, int outer_start, int inner_start);
 bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
 bool inversion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
 int find_start(int chrom, int outer_start, int inner_start);
@@ -221,8 +221,13 @@ bool process_line(string line) {
         } catch(...) {
             cout << "# Unable to convert into int" << splitted_line[7].substr(CIPOS_comma+1, CIPOS_end) << endl;
         }
+
+        if ( splitted_line[7].find("INS", type_index + 7) != -1 || splitted_line[7].find("ins", type_index + 7) != -1 ) {
+            insertion(id, chrom, sv_pos+outer_start, sv_pos+inner_start);
+            return true;
+        }
         
-        // CIPOS
+        // CIEND
         int CIEND_start = splitted_line[7].find("CIEND=");
         int CIEND_comma = splitted_line[7].find(",", CIEND_start + 1);
         int CIEND_end = splitted_line[7].find(";", CIEND_start + 1);
@@ -243,9 +248,7 @@ bool process_line(string line) {
         }
         
         // Call relevant function to refine SV
-        if ( splitted_line[7].find("INS", type_index + 7) != -1 || splitted_line[7].find("ins", type_index + 7) != -1 ) {
-            insertion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end);
-        } else if ( splitted_line[7].find("DEL", type_index + 7) != -1 || splitted_line[7].find("del", type_index + 7) != -1 ) {
+        if ( splitted_line[7].find("DEL", type_index + 7) != -1 || splitted_line[7].find("del", type_index + 7) != -1 ) {
             deletion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end);
         } else if ( splitted_line[7].find("INV", type_index + 7) != -1 || splitted_line[7].find("inv", type_index + 7) != -1 ) {
             inversion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end);
@@ -267,7 +270,7 @@ int find_start(int chrom, int outer_start, int inner_start) {
     uint32_t flag;
     
     hts_itr_t *iter;
-    iter = sam_itr_queryi( bam_file_index, chrom, outer_start - WIDER_INTERVAL, inner_start + NARROW_INTERVAL);
+    iter = sam_itr_queryi( bam_file_index, chrom - 1, outer_start - WIDER_INTERVAL, inner_start + NARROW_INTERVAL);
     vector<int> start_positions;
     
     if (iter == NULL) {
@@ -294,8 +297,6 @@ int find_start(int chrom, int outer_start, int inner_start) {
     }
     sam_itr_destroy(iter);
 
-    
-    
     return consensus(start_positions);
 }
 
@@ -309,7 +310,7 @@ int find_end(int chrom, int inner_end, int outer_end) {
     
     hts_itr_t *iter;
     vector<int> end_positions;
-    iter = sam_itr_queryi( bam_file_index, chrom, inner_end - NARROW_INTERVAL, outer_end + NARROW_INTERVAL);
+    iter = sam_itr_queryi( bam_file_index, chrom - 1, inner_end - NARROW_INTERVAL, outer_end + NARROW_INTERVAL);
     
     if (iter == NULL) {
         printf("# invalid interval, iter is null\n");
@@ -399,22 +400,22 @@ int consensus(vector<int> locations) {
     return consensus;
 }
 
-bool insertion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
+bool insertion(string id, int chrom, int outer_start, int inner_start) {
 
-    int refined_start = find_start(chrom, outer_start, inner_start);
-    int refined_end = find_end(chrom, inner_end, outer_end);
+    int refined_start = find_start_or_end(chrom, outer_start, inner_start);
     
-    cout << chrom << "\t" <<  id << "\t" << "ins" << "\t" << refined_start << "\t" <<  refined_end << endl;
+    cout << chrom << "\t" << id << "\t" << "ins" << "\t" << refined_start << endl;
     
     return true;
 }
 
 bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
     
-    int refined_pos = find_start_or_end(chrom, outer_start, inner_start);
+    int refined_start = find_start(chrom, outer_start, inner_start);
+    int refined_end = find_end(chrom, inner_end, outer_end);
     
-    cout << chrom << "\t" << id << "\t" << "del" << "\t" << refined_pos << endl;
-    
+    cout << chrom << "\t" <<  id << "\t" << "del" << "\t" << refined_start << "\t" <<  refined_end << endl;
+
     return true;
 }
 
