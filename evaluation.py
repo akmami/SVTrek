@@ -84,7 +84,7 @@ with open(vcf, 'r') as f1:
         end = int(pos) + svlen + 1
         
         if any('DEL' in s for s in line):
-            vcf_sv[sv_id] = {"pos": pos, "chrom": chrom, "svlen": svlen, "sv_type": "del"}
+            vcf_sv[sv_id] = {"pos": pos, "end": end, "chrom": chrom, "svlen": svlen, "sv_type": "del"}
         elif any('INS' in s for s in line):
             vcf_sv[sv_id] = {"pos": pos, "chrom": chrom, "svlen": svlen, "sv_type": "ins"}
         elif any('INV' in s for s in line):
@@ -98,8 +98,8 @@ output.write(str(vcf_sv))
 output.close()
 
 ins_pos = dict()
-ins_end = dict()
 del_pos = dict()
+del_end = dict()
 inv_pos = dict()
 inv_end = dict()
 
@@ -122,6 +122,7 @@ with open(result, 'r') as f1:
         sv = vcf_sv[sv_id]
 
         if sv_type == 'del':
+            sv_end = int(line[4])
             if sv_pos == -1:
                 if float('inf') in del_pos:
                     del_pos[float('inf')] = del_pos[float('inf')] + 1
@@ -132,8 +133,18 @@ with open(result, 'r') as f1:
                     del_pos[sv["pos"]-sv_pos] = del_pos[sv["pos"]-sv_pos] + 1
                 else:
                     del_pos[sv["pos"]-sv_pos] = 1
+            
+            if sv_end == -1:
+                if float('inf') in del_end:
+                    del_end[float('inf')] = del_end[float('inf')] + 1
+                else:
+                    del_end[float('inf')] = 1
+            else:
+                if sv["end"] in del_end:
+                    del_end[sv["end"]-sv_end] = del_end[sv["end"]-sv_end] + 1
+                else:
+                    del_end[sv["end"]-sv_end] = 1
         if sv_type == 'ins':
-            sv_end = int(line[4])
             if sv_pos == -1:
                 if float('inf') in ins_pos:
                     ins_pos[float('inf')] = ins_pos[float('inf')] + 1
@@ -144,17 +155,7 @@ with open(result, 'r') as f1:
                     ins_pos[sv["pos"]-sv_pos] = ins_pos[sv["pos"]-sv_pos] + 1
                 else:
                     ins_pos[sv["pos"]-sv_pos] = 1
-
-            if sv_end == -1:
-                if float('inf') in ins_end:
-                    ins_end[float('inf')] = ins_end[float('inf')] + 1
-                else:
-                    ins_end[float('inf')] = 1
-            else:
-                if sv["end"] in ins_end:
-                    ins_end[sv["end"]-sv_end] = ins_end[sv["end"]-sv_end] + 1
-                else:
-                    ins_end[sv["end"]-sv_end] = 1
+        
         if sv_type == 'inv':
             sv_end = int(line[4])
             if sv_pos == -1:
@@ -184,15 +185,15 @@ print("Results:")
 print("Insertion pos:")
 for key in sorted(ins_pos.keys()):
     print("{} : {}".format(key, ins_pos[key]))
-print("Insertion end:")
-for key in sorted(ins_end.keys()):
-    print("{} : {}".format(key, ins_end[key]))
-print()
+print("")
 
 print("Deletion pos:")
 for key in sorted(del_pos.keys()):
     print("{} : {}".format(key, del_pos[key]))
-print()
+print("Deletion end:")
+for key in sorted(del_end.keys()):
+    print("{} : {}".format(key, del_end[key]))
+print("")
 
 print("Inversion pos:")
 for key in sorted(inv_pos.keys()):
@@ -200,4 +201,4 @@ for key in sorted(inv_pos.keys()):
 print("Inversion end:")
 for key in sorted(inv_end.keys()):
     print("{} : {}".format(key, inv_end[key]))
-print()
+print("")
