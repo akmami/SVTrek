@@ -9,6 +9,7 @@
 #include <boost/algorithm/string.hpp>
 #include <vector>
 #include <cmath>
+#include <limits>
 #include "argh.h"
 
 //                                Consumes query   reference   Op
@@ -26,11 +27,11 @@
 #define FLAG_SECONDARY_ALIGNMENT        0x100
 #define FLAG_SUPPLEMENTARY_ALIGNMENT    0x800
 
-
+#define CI_MAX_LENGTH           0.1
 #define WIDER_INTERVAL          40000
 #define NARROW_INTERVAL         2000
-#define CONSENSUS_INTEVAL       3
-#define CONSENSUS_MIN_COUNT     2
+#define CONSENSUS_INTEVAL       10
+#define CONSENSUS_MIN_COUNT     1
 //#define CONSENSUS_COUNT_PERC    0.3
 
 using namespace std;
@@ -39,13 +40,13 @@ using namespace std;
 
 int run(char const *bam, char const *vcf);
 bool process_line(string line);
-bool insertion(string id, int chrom, int outer_start, int inner_start);
-bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
-bool inversion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end);
-int find_start(int chrom, int outer_start, int inner_start);
-int find_end(int chrom, int inner_end, int outer_end);
-int find_start_or_end(int chrom, int start, int end);
-int consensus(vector<int> locations);
+bool insertion(string id, int chrom, int outer_start, int inner_start, int imprecise_pos);
+bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end, int imprecise_pos, int imprecise_end);
+bool inversion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end, int imprecise_pos, int imprecise_end);
+int find_start(int chrom, int outer_start, int inner_start, int imprecise_pos);
+int find_end(int chrom, int inner_end, int outer_end, int imprecise_pos);
+int find_start_or_end(int chrom, int start, int end, int imprecise_pos);
+int consensus(vector<int> locations, int imprecise_pos);
 
 // MARK: - global variables
 
@@ -223,7 +224,7 @@ bool process_line(string line) {
         }
 
         if ( splitted_line[7].find("INS", type_index + 7) != -1 || splitted_line[7].find("ins", type_index + 7) != -1 ) {
-            insertion(id, chrom, sv_pos+outer_start, sv_pos+inner_start);
+            insertion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_pos);
             return true;
         }
         
@@ -249,9 +250,9 @@ bool process_line(string line) {
         
         // Call relevant function to refine SV
         if ( splitted_line[7].find("DEL", type_index + 7) != -1 || splitted_line[7].find("del", type_index + 7) != -1 ) {
-            deletion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end);
+            deletion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end, sv_pos, sv_end);
         } else if ( splitted_line[7].find("INV", type_index + 7) != -1 || splitted_line[7].find("inv", type_index + 7) != -1 ) {
-            inversion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end);
+            inversion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end, sv_pos, sv_end);
         } else {
             // Other type of sv
             return false;
@@ -261,7 +262,7 @@ bool process_line(string line) {
     return true;
 }
 
-int find_start(int chrom, int outer_start, int inner_start) {
+int find_start(int chrom, int outer_start, int inner_start, int imprecise_pos) {
 
     // sam_read1 variables
     int32_t pos;
@@ -274,7 +275,7 @@ int find_start(int chrom, int outer_start, int inner_start) {
     vector<int> start_positions;
     
     if (iter == NULL) {
-        printf("# invalid interval, iter is null\n");
+        printf("# invalid interval, iter is null. pos: %d\n", imprecise_pos);
     } else {
         while (sam_itr_next( fp_in, iter, aln ) > 0) {
             pos = aln->core.pos;
@@ -297,10 +298,10 @@ int find_start(int chrom, int outer_start, int inner_start) {
     }
     sam_itr_destroy(iter);
 
-    return consensus(start_positions);
+    return consensus(start_positions, imprecise_pos);
 }
 
-int find_end(int chrom, int inner_end, int outer_end) {
+int find_end(int chrom, int inner_end, int outer_end, int imprecise_pos) {
     
     // sam_read1 variables
     int32_t pos;
@@ -313,7 +314,7 @@ int find_end(int chrom, int inner_end, int outer_end) {
     iter = sam_itr_queryi( bam_file_index, chrom - 1, inner_end - NARROW_INTERVAL, outer_end + NARROW_INTERVAL);
     
     if (iter == NULL) {
-        printf("# invalid interval, iter is null\n");
+        printf("# invalid interval, iter is null. pos: %d\n", imprecise_pos);
     } else {
         while (sam_itr_next( fp_in, iter, aln ) > 0) {
             pos = aln->core.pos;
@@ -328,10 +329,10 @@ int find_end(int chrom, int inner_end, int outer_end) {
     
     sam_itr_destroy(iter);
     
-    return consensus(end_positions);
+    return consensus(end_positions, imprecise_pos);
 }
 
-int find_start_or_end(int chrom, int start, int end) {
+int find_start_or_end(int chrom, int start, int end, int imprecise_pos) {
     
     // sam_read1 variables
     int32_t pos;
@@ -344,7 +345,7 @@ int find_start_or_end(int chrom, int start, int end) {
     vector<int> positions;
     
     if (iter == NULL) {
-        printf("# invalid interval, iter is null\n");
+        printf("# invalid interval, iter is null. pos: %d\n", imprecise_pos);
     } else {
         while (sam_itr_next( fp_in, iter, aln ) > 0) {
             pos = aln->core.pos;
@@ -370,21 +371,22 @@ int find_start_or_end(int chrom, int start, int end) {
     }
     sam_itr_destroy(iter);
     
-    return consensus(positions);
+    return consensus(positions, imprecise_pos);
 }
 
-int consensus(vector<int> locations) {
+int consensus(vector<int> locations, int imprecise_pos) {
+
     int length = locations.size(), i;
-    int consensus = -1, max_count = CONSENSUS_MIN_COUNT - 1;
+    int consensus = -1, max_count = CONSENSUS_MIN_COUNT - 1, distance = INT_MAX;
     vector<int>::iterator ptr_i;
     vector<int>::iterator ptr_j;
 
     sort(locations.begin(), locations.end());
-    
+
     for (ptr_i = locations.begin(), i = 0; ptr_i<locations.end(); ptr_i++, i++) {
         int item_i = *ptr_i;
         int sum = 0, count = 1;
-        for (ptr_j = locations.begin()+i; ptr_j<locations.end() && *ptr_j<*ptr_i+CONSENSUS_INTEVAL; ptr_j++) {
+        for (ptr_j = locations.begin()+i; ptr_j<locations.end() && *ptr_j<=*ptr_i+CONSENSUS_INTEVAL; ptr_j++) {
             sum += (*ptr_j) - (*ptr_i);
             count++;
         }
@@ -394,36 +396,41 @@ int consensus(vector<int> locations) {
         if (count > max_count) {
             max_count = count;
             consensus = sum;
+            distance = abs(imprecise_pos-sum);
+        } else if (count == max_count && distance > abs(imprecise_pos-sum)) {
+            max_count = count;
+            consensus = sum;
+            distance = abs(imprecise_pos-sum);
         }
     }
     
     return consensus;
 }
 
-bool insertion(string id, int chrom, int outer_start, int inner_start) {
+bool insertion(string id, int chrom, int outer_start, int inner_start, int imprecise_pos) {
 
-    int refined_start = find_start_or_end(chrom, outer_start, inner_start);
+    int refined_start = find_start_or_end(chrom, outer_start, inner_start, imprecise_pos);
     
     cout << chrom << "\t" << id << "\t" << "ins" << "\t" << refined_start << endl;
     
     return true;
 }
 
-bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
+bool deletion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end, int imprecise_pos, int imprecise_end) {
     
-    int refined_start = find_start(chrom, outer_start, inner_start);
-    int refined_end = find_end(chrom, inner_end, outer_end);
+    int refined_start = find_start(chrom, outer_start, inner_start, imprecise_pos);
+    int refined_end = find_end(chrom, inner_end, outer_end, imprecise_end);
     
     cout << chrom << "\t" <<  id << "\t" << "del" << "\t" << refined_start << "\t" <<  refined_end << endl;
 
     return true;
 }
 
-bool inversion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end) {
+bool inversion(string id, int chrom, int outer_start, int inner_start, int inner_end, int outer_end, int imprecise_pos, int imprecise_end) {
 
     // sam_read1 variables
-    int refined_start = find_start_or_end(chrom, outer_start, inner_start);
-    int refined_end = find_start_or_end(chrom, inner_end, outer_end);
+    int refined_start = find_start_or_end(chrom, outer_start, inner_start, imprecise_pos);
+    int refined_end = find_start_or_end(chrom, inner_end, outer_end, imprecise_end);
     
     cout << chrom << "\t" << id << "\t" << "inv" << "\t" << refined_start << "\t" <<  refined_end << endl;
     
