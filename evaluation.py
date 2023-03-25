@@ -34,10 +34,10 @@ if result is None:
     print("Please enter vcf result file path.")
     exit(-1)
 
-if out is None:
-    out = "evaluation.result.txt"
+if out is not None:
+    output = open(out, "w")
+    redirect_stdout(output)
 
-output = open(out, "w")
 
 vcf_sv = dict()
 
@@ -94,14 +94,23 @@ with open(vcf, 'r') as f1:
         else:
             continue
 
-output.write(str(vcf_sv))
-output.close()
 
 ins_pos = dict()
 del_pos = dict()
 del_end = dict()
 inv_pos = dict()
 inv_end = dict()
+
+ins_gr = 0
+ins_ls = 0
+del_pos_gr = 0
+del_pos_ls = 0
+del_end_gr = 0
+del_end_ls = 0
+inv_pos_gr = 0
+inv_pos_ls = 0
+inv_end_gr = 0
+inv_end_ls = 0
 
 with open(result, 'r') as f1:
 
@@ -124,61 +133,58 @@ with open(result, 'r') as f1:
         if sv_type == 'del':
             sv_end = int(line[4])
             if sv_pos == -1:
-                if float('inf') in del_pos:
-                    del_pos[float('inf')] = del_pos[float('inf')] + 1
-                else:
-                    del_pos[float('inf')] = 1
+                del_pos[float('inf')] = del_pos[float('inf')] + 1 if float('inf') in del_pos else 1
             else:
-                if sv["pos"] in del_pos:
-                    del_pos[sv["pos"]-sv_pos] = del_pos[sv["pos"]-sv_pos] + 1
-                else:
-                    del_pos[sv["pos"]-sv_pos] = 1
-            
+                del_pos[sv["pos"]-sv_pos] = del_pos[sv["pos"]-sv_pos] + 1 if sv["pos"]-sv_pos in del_pos else 1
+        
             if sv_end == -1:
-                if float('inf') in del_end:
-                    del_end[float('inf')] = del_end[float('inf')] + 1
-                else:
-                    del_end[float('inf')] = 1
+                del_end[float('inf')] = del_end[float('inf')] + 1 if float('inf') in del_end else 1
             else:
-                if sv["end"] in del_end:
-                    del_end[sv["end"]-sv_end] = del_end[sv["end"]-sv_end] + 1
-                else:
-                    del_end[sv["end"]-sv_end] = 1
+                del_end[sv["end"]-sv_end] = del_end[sv["end"]-sv_end] + 1 if sv["end"]-sv_end in del_end else 1
+
+            if sv_pos == -1 or abs(sv["pos"]-sv_pos) > 10:
+                del_pos_gr += 1
+            else:
+                del_pos_ls += 1
+  
+            if sv_end == -1 or abs(sv["end"]-sv_end) > 10:
+                del_end_gr += 1
+            else:
+                del_end_ls += 1
+            
+        
         if sv_type == 'ins':
             if sv_pos == -1:
-                if float('inf') in ins_pos:
-                    ins_pos[float('inf')] = ins_pos[float('inf')] + 1
-                else:
-                    ins_pos[float('inf')] = 1
+                ins_pos[float('inf')] = ins_pos[float('inf')] + 1 if float('inf') in ins_pos else 1
             else:
-                if sv["pos"] in ins_pos:
-                    ins_pos[sv["pos"]-sv_pos] = ins_pos[sv["pos"]-sv_pos] + 1
-                else:
-                    ins_pos[sv["pos"]-sv_pos] = 1
-        
+                ins_pos[sv["pos"]-sv_pos] = ins_pos[sv["pos"]-sv_pos] + 1 if sv["pos"]-sv_pos in ins_pos else 1
+
+            if sv_pos == -1 or abs(sv["pos"]-sv_pos) > 10:
+                ins_gr += 1
+            else:
+                ins_ls += 1
+
         if sv_type == 'inv':
             sv_end = int(line[4])
             if sv_pos == -1:
-                if float('inf') in inv_pos:
-                    inv_pos[float('inf')] = inv_pos[float('inf')] + 1
-                else:
-                    inv_pos[float('inf')] = 1
+                inv_pos[float('inf')] = inv_pos[float('inf')] + 1 if float('inf') in inv_pos else 1
             else:
-                if sv["pos"] in inv_pos:
-                    inv_pos[sv["pos"]-sv_pos] = inv_pos[sv["pos"]-sv_pos] + 1
-                else:
-                    inv_pos[sv["pos"]-sv_pos] = 1
+                inv_pos[sv["pos"]-sv_pos] = inv_pos[sv["pos"]-sv_pos] + 1 if sv["pos"]-sv_pos in inv_pos else 1
 
             if sv_end == -1:
-                if float('inf') in inv_end:
-                    inv_end[float('inf')] = inv_end[float('inf')] + 1
-                else:
-                    inv_end[float('inf')] = 1
+                inv_end[float('inf')] = inv_end[float('inf')] + 1 if float('inf') in inv_end else 1
             else:
-                if sv["end"] in inv_end:
-                    inv_end[sv["end"]-sv_end] = inv_end[sv["end"]-sv_end] + 1
-                else:
-                    inv_end[sv["end"]-sv_end] = 1
+                inv_end[sv["end"]-sv_end] = inv_end[sv["end"]-sv_end] + 1 if sv["end"]-sv_end in inv_end else 1
+            
+            if sv_pos == -1 or abs(sv["pos"]-sv_pos) > 10:
+                inv_pos_gr += 1
+            else:
+                inv_pos_ls += 1
+  
+            if sv_end == -1 or abs(sv["end"]-sv_end) > 10:
+                inv_end_gr += 1
+            else:
+                inv_end_ls += 1
 
 print("Results:")
 
@@ -201,4 +207,28 @@ for key in sorted(inv_pos.keys()):
 print("Inversion end:")
 for key in sorted(inv_end.keys()):
     print("{} : {}".format(key, inv_end[key]))
+print("")
+
+if out is not None:
+    output.close()
+
+print("insertion pos")
+print(">10\t<10")
+print(str(ins_gr) + "\t" + str(ins_ls))
+print("")
+
+print("deletion pos")
+print(">10\t<10")
+print(str(del_pos_gr) + "\t" + str(del_pos_ls))
+print("deletion end")
+print(">10\t<10")
+print(str(del_end_gr) + "\t" + str(del_end_ls))
+print("")
+
+print("inversion pos")
+print(">10\t<10")
+print(str(inv_pos_gr) + "\t" + str(inv_pos_ls))
+print("inversion end")
+print(">10\t<10")
+print(str(inv_end_gr) + "\t" + str(inv_end_ls))
 print("")
