@@ -1,4 +1,9 @@
+# .DS_Store
+.DS_Store
+**/DS_Store
+
 # sveldt
 sveldt
 sveldt.o
-.DS_Store
+Makefile
+extract_simulated_data.py
