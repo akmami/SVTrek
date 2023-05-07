@@ -6,4 +6,6 @@
 sveldt
 sveldt.o
 Makefile
-extract_simulated_data.py
+
+# helpers
+helpers/
