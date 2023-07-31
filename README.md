@@ -14,7 +14,7 @@ You need to first clone htslib and its submodule htscodecs. Please run the follo
 
 ```
 
-  git submodule update --init --recursive
+git submodule update --init --recursive
 
 ```
 
@@ -22,11 +22,11 @@ Then, go to the htslib directory to compile the library.
 
 ```
 
-  cd htslib
+cd htslib
 
-  ./configure
-  make
-  make install
+./configure
+make
+make install
 
 ```
 
@@ -36,13 +36,19 @@ The default installation directory of libraries, library header files, utilities
 This might cause permission errors if you installed the htslib in machines where you do not own the root privilege. Also, this configuration installs the library globally, but, you can change the directory by running the following command 
 
 ```
-
-  # instead of 
-  make install
+# instead of 
+make install
    
-  # run   
-  make prefix=DIR install
+# run   
+make prefix=DIR install
 
+```
+
+Minimal installation of htslib is
+
+```
+cd htslib
+make install
 ```
 
 If after these, you should have installed and compiled htslib. If you encounter any error, please visit [htslib](https://github.com/samtools/htslib/blob/4604554d424406c6764af8da17b370c1b525ae1a/INSTALL) and try to follow the instructions there.
@@ -50,9 +56,9 @@ Now, you need to compile SVELDT. To do this please run the following commands
 
 ```
 
-  cd ..  # You need to go SVELDT directory
+cd ..  # You need to go SVELDT directory
    
-  make
+make
 
 ```
 
@@ -62,7 +68,7 @@ Great, now you can use the program by running
 
 ```
 
-  ./sveldt --bam bam_file --vcf vcf_file
+./sveldt --bam bam_file --vcf vcf_file
 
 ```
 
