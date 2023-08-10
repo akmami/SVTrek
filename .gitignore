@@ -7,5 +7,4 @@ sveldt
 sveldt.o
 Makefile
 
-# helpers
-helpers/
+htslib/ 
