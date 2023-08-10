@@ -1,148 +1,176 @@
 #ifndef PROCESS_LINE_CPP
 #define PROCESS_LINE_CPP
 
-#include "variables.h"
-#include "deletion.cpp"
-#include "insertion.cpp"
-#include "inversion.cpp"
+#include "static_variables.h"
+#include "params.h"
+#include "variations.cpp"
 
-bool process_line(std::string &line, bool verbose=false) {
+
+bool process_line(params &_params, std::string &line) {
     
     // extract data
     if (line.find("IMPRECISE") == std::string::npos || line.find("SVLEN") != std::string::npos || line.find("CIPOS") != std::string::npos) {
         
-        // local variables
-        int comp, chrom, sv_pos, sv_end;
-        std::string id, alt, token;
-        
-        std::vector<std::string> splitted_line;
+        // CHROM POS ID REF ALT QUAL FILTER INFO FORMAT
+        std::string _chrom, _pos, _id, _ref, _alt, _qual, _filter, _info, _format;
         std::istringstream iss(line);
 
-        while(std::getline(iss, token, '\t'))
-            splitted_line.push_back(token);
+        std::getline(iss, _chrom, '\t');
+        std::getline(iss, _pos, '\t');
+        std::getline(iss, _id, '\t');
+        std::getline(iss, _ref, '\t');
+        std::getline(iss, _alt, '\t');
+        std::getline(iss, _qual, '\t');
+        std::getline(iss, _filter, '\t');
+        std::getline(iss, _info, '\t');
+        iss >> _format;
         
+        int chrom, pos;
+        std::string sv_type;
+
+        // MARK: Processing CHROM field
         try {
-            chrom = stoi(splitted_line[0]);
+            chrom = stoi(_chrom);
         } catch (...) {
             try {
-                chrom = stoi(splitted_line[0].substr(3));
+                chrom = stoi(_chrom.substr(3));
             } catch (...) {
-                // unlucky :(
-                if ( (splitted_line[0].length() && (splitted_line[0][0] == 'X' || splitted_line[0][0] == 'x') ) ||
-                        splitted_line[0].length() == CIGAR_SOFT_CLIP && (splitted_line[0][3] == 'X' || splitted_line[0][3] == 'x') ) {
-                    // chrom is X
-                } else if ( ( splitted_line[0].length() && (splitted_line[0][0] == 'Y' || splitted_line[0][0] == 'y') ) ||
-                           ( splitted_line[0].length() == CIGAR_SOFT_CLIP && (splitted_line[0][3] == 'Y' || splitted_line[0][3] == 'y') ) ){
-                    // chrom is Y
-                } else {
-                    std::cout << "# Chromosome could not be converted into integer. CHROM tag : " << splitted_line[0] << std::endl;
-                }
                 return false;
             }
         }
+
+        // MARK: Processing POS field
         try {
-            sv_pos = stoi(splitted_line[1]);      // it is set but never used
+            pos = stoi(_pos);
         } catch (...) {
-            sv_pos = -1;
             return false;
-        }
-        
-        id = splitted_line[2];
-        alt = splitted_line[4];
-        
-        // CIPOS and CIEND info retrieval part
-        int outer_start, inner_start, inner_end, outer_end;
-        
-        
-        // call function according to sv type
-        int type_index = splitted_line[7].find("SVTYPE=");
-        
-        if (type_index == -1) {
-            return false;
-        }
-        
-        // Retrieve END
-        int sv_end_start = splitted_line[7].find("END=");
-        if (sv_end_start != 0) {
-            sv_end_start = splitted_line[7].find(";END=");
-        }
-        int sv_end_end = splitted_line[7].find(";", sv_end_start+1);
-        
-        if (sv_end_start == -1) {
-            return false;
-        }
-        if (sv_end_end == -1) {
-            sv_end_end = splitted_line[7].length();
-        }
-        
-        try {
-            if (sv_end_start == 0) {
-                sv_end = stoi( splitted_line[7].substr(sv_end_start+4, sv_end_end) );
-            } else {
-                sv_end = stoi( splitted_line[7].substr(sv_end_start+5, sv_end_end) );
-            }
-        } catch(...) {
-            std::cout << "# Unable to convert into int" << splitted_line[7].substr(sv_end_start+4, sv_end_end) << std::endl;
-        }
-        
-        
-        // Retrieve CIPOS and CIEND index
-        // CIPOS
-        int CIPOS_start = splitted_line[7].find("CIPOS=");
-        int CIPOS_comma = splitted_line[7].find(",", CIPOS_start + 1);
-        int CIPOS_end = splitted_line[7].find(";", CIPOS_start + 1);
-        
-        if (CIPOS_end == -1)
-            CIPOS_end = splitted_line[7].length();
-        
-        try {
-            outer_start = stoi( splitted_line[7].substr(CIPOS_start+6, CIPOS_comma) );
-        } catch(...) {
-            std::cout << "# Unable to convert into int" << splitted_line[7].substr(CIPOS_start+6, CIPOS_comma) << std::endl;
-        }
-        
-        try {
-            inner_start = stoi( splitted_line[7].substr(CIPOS_comma+1, CIPOS_end) );
-        } catch(...) {
-            std::cout << "# Unable to convert into int" << splitted_line[7].substr(CIPOS_comma+1, CIPOS_end) << std::endl;
         }
 
-        if ( splitted_line[7].find("INS", type_index + 7) != -1 || splitted_line[7].find("ins", type_index + 7) != -1 ) {
-            insertion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_pos, verbose);
-            return true;
+        result res;
+
+        // MARK: Processing INFO field
+        int index_1, index_2, end, outer_start, inner_start, inner_end, outer_end;
+        std::string temp;
+
+        // END
+        index_1 = _info.find("SVTYPE=");
+        if (index_1 == std::string::npos) return false;
+        index_2 = _info.find(";", index_1);
+        sv_type = _info.substr( index_1 + 7, index_2 );
+
+        index_1 = _info.find("END=") != 0 ? _info.find(";END=") : 0;
+        if (index_1 == std::string::npos) return false;
+        index_2 = _info.find(";", index_1);
+
+        try {
+            end = stoi( _info.substr( index_1 + (index_1 == 0 ? 4 : 5), index_2 ) );
+        } catch(...) {
+            _params.verbose && std::cout << "# Unable to convert into int" << _info.substr( index_1 + (index_1 == 0 ? 4 : 5), index_2 ) << std::endl;
         }
+
+        // CIPOS
+        index_1 = _info.find("CIPOS=");
+        if (index_1 == std::string::npos) return false;
+        index_2 = _info.find(";", index_1);
+        iss.clear();
+        iss.str( _info.substr( index_1 + 6, index_2 ) );
         
+        std::getline(iss, temp, ',');
+        
+        try {
+            outer_start = stoi( temp ) + pos;
+        } catch(...) {
+            _params.verbose && std::cout << "# Unable to convert into int " << temp << std::endl;
+        }
+        iss >> temp;
+        
+        try {
+            inner_start = stoi( temp ) + pos;
+        } catch(...) {
+            _params.verbose && std::cout << "# Unable to convert into int " << temp << std::endl;
+        }
+
+
+        if ( sv_type == "INS" || sv_type == "INS:ME")
+            goto refining_ins;
+
         // CIEND
-        int CIEND_start = splitted_line[7].find("CIEND=");
-        int CIEND_comma = splitted_line[7].find(",", CIEND_start + 1);
-        int CIEND_end = splitted_line[7].find(";", CIEND_start + 1);
+        index_1 = _info.find("CIEND=");    
+        if (index_1 == std::string::npos) return false;
+        index_2 = _info.find(";", index_1);
+        iss.clear();
+        iss.str( _info.substr( index_1 + 6, index_2 ) );
         
-        if (CIEND_end == -1)
-            CIEND_end = splitted_line[7].length();
-        
+        std::getline(iss, temp, ',');
         try {
-            inner_end = stoi( splitted_line[7].substr(CIEND_start+6, CIEND_comma) );
+            inner_end = stoi( temp ) + end;
         } catch(...) {
-            std::cout << "# Unable to convert into int" << splitted_line[7].substr(CIEND_start+6, CIEND_comma) << std::endl;
+            _params.verbose && std::cout << "# Unable to convert into int " << temp << std::endl;
         }
         
+        iss >> temp;
         try {
-            outer_end = stoi( splitted_line[7].substr(CIEND_comma+1, CIEND_end) );
+            outer_end = stoi( temp ) + end;
         } catch(...) {
-            std::cout << "# Unable to convert into int" << splitted_line[7].substr(CIEND_comma+1, CIEND_end) << std::endl;
+            _params.verbose && std::cout << "# Unable to convert into int " << temp << std::endl;
         }
+
+        goto refining_other;
         
-        // Call relevant function to refine SV
-        if ( splitted_line[7].find("DEL", type_index + 7) != -1 || splitted_line[7].find("del", type_index + 7) != -1 ) {
-            deletion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end, sv_pos, sv_end, verbose);
-        } else if ( splitted_line[7].find("INV", type_index + 7) != -1 || splitted_line[7].find("inv", type_index + 7) != -1 ) {
-            inversion(id, chrom, sv_pos+outer_start, sv_pos+inner_start, sv_end+inner_end, sv_end+outer_end, sv_pos, sv_end, verbose);
-        } else {
-            // Other type of sv
-            return false;
-        }
+        refining_ins:
+        res = sv::insertion(chrom, outer_start, inner_start, pos, _params);
+        return true;
+        
+        
+        refining_other:
+        if ( sv_type == "DEL" || sv_type == "DEL:ME" ) {
+            
+            res = sv::deletion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params);
+
+            if ( res.refined_start != -1 ) {
+                index_1 = _info.find("CIPOS=");
+                index_2 = _info.find(";", index_1);
+                _info.erase( index_1, index_2 - index_1 );
+                _pos = std::to_string(res.refined_start); 
+            }
+            
+            if ( res.refined_end != -1 ) {
+                index_1 = _info.find("CIEND=");
+                index_2 = _info.find(";", index_1);
+                _info.erase( index_1, index_2 - index_1 );
+            }
+            
+            _params.out_vcf << _chrom << '\t' << _pos << _id << _ref << _alt << _qual << _filter << _info << _format << std::endl;
+            
+            return true;
+        } 
+
+        if ( sv_type == "INV" ) {
+            
+            res = sv::inversion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params);
+            
+            if ( res.refined_start != -1 ) {
+                index_1 = _info.find("CIPOS=");
+                index_2 = _info.find(";", index_1);
+                _info.erase( index_1, index_2 - index_1 );
+                _pos = std::to_string(res.refined_start); 
+            }
+            
+            if ( res.refined_end != -1 ) {
+                index_1 = _info.find("CIEND=");
+                index_2 = _info.find(";", index_1);
+                _info.erase( index_1, index_2 - index_1 );
+            }
+            
+            _params.out_vcf << _chrom << '\t' << _pos << _id << _ref << _alt << _qual << _filter << _info << _format << std::endl;
+
+            return true;
+        } 
+
+        return false;
     }
     
+    _params.out_vcf << line;
     return true;
 }
 
