@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) [year] [fullname]
+# Copyright (c) Akmuhammet Ashyralyyev
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,15 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-#
-# @author: Akmuhammet Ashyralyyev
-#
-#     run python extract_sv_delly.py -c chromosom -i input.vcf [-o output.txt]
-# or
-#     run python extract_sv_delly.py --chr chromosom --input input.vcf [--output output.vcf]
-#
-# Default output file is named [input].sim.vcf
-
 
 import argparse
 import random
