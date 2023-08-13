@@ -21,6 +21,7 @@
 #define __NARROW_INTERVAL         2000
 #define __CONSENSUS_INTEVAL       10
 #define __CONSENSUS_MIN_COUNT     1
+#define __SV_MIN_LENGTH           50
 //#define CONSENSUS_COUNT_PERC    0.3
 
 #endif
