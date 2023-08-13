@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) Akmuhammet Ashyralyyev
+# Copyright (c) 2023 Akmuhammet Ashyralyyev
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -167,9 +167,7 @@ with open(arg_vcf, "r") as f:
             out_f.write(line)
             continue
 
-        
-        
-        # set cofidence intervals
+        # set confidence intervals
         outer_start = - abs( int( random.random() * sv_len * 0.06 + sv_len * 0.01 ) ) - 25
         inner_start = abs( int( random.random() * sv_len * 0.06 + sv_len * 0.01 ) ) + 25
 
@@ -188,6 +186,10 @@ with open(arg_vcf, "r") as f:
         
         if sv_info_tag in splitted_line[7]:
             splitted_line[7] = splitted_line[7].replace(sv_info_tag, "SVTYPE={}".format(sv_type))
+
+        if splitted_line[2] == ".":
+            splitted_line[2] = "GoldStandard{}".format(id_index)
+            id_index += 1
         
         out_f.write("\t".join(splitted_line))
         
