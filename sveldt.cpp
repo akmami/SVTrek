@@ -113,8 +113,10 @@ int process_vcf(params &_params) {
     std::string line;
     
     while (getline(vcf, line)) {
-        if (line.at(0) == '#')
+        if (line.at(0) == '#') {
+            _params.out_vcf << line << std::endl;
             continue;
+        }
         process_line(_params, line);
     }
     
