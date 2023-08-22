@@ -16,11 +16,12 @@
 #define __FLAG_SECONDARY_ALIGNMENT        0x100
 #define __FLAG_SUPPLEMENTARY_ALIGNMENT    0x800
 
+#define __CI_MIN_FILTER_LENGTH    5000
 #define __CI_MAX_LENGTH           0.1
 #define __WIDER_INTERVAL          40000
 #define __NARROW_INTERVAL         2000
 #define __CONSENSUS_INTEVAL       10
-#define __CONSENSUS_MIN_COUNT     1
+#define __CONSENSUS_MIN_COUNT     3
 #define __SV_MIN_LENGTH           50
 //#define CONSENSUS_COUNT_PERC    0.3
 
