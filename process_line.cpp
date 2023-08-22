@@ -7,10 +7,10 @@
 
 
 bool process_line(params &_params, std::string &line) {
-    
+
     // extract data
     if ( line.find("CIPOS") != std::string::npos && line.find("SVTYPE=") != std::string::npos ) {
-        
+
         // CHROM POS ID REF ALT QUAL FILTER INFO FORMAT
         std::string _chrom, _pos, _id, _ref, _alt, _qual, _filter, _info, _format;
         std::istringstream iss(line);
@@ -35,7 +35,7 @@ bool process_line(params &_params, std::string &line) {
             try {
                 chrom = stoi(_chrom.substr(3));
             } catch (...) {
-                _params.verbose && std::cout << " Unable to convert chrom into int for sv id " << _id << std::endl;
+                // _params.verbose && std::cout << " Unable to convert chrom into int for sv id " << _id << std::endl;
                 return false;
             }
         }
@@ -66,7 +66,7 @@ bool process_line(params &_params, std::string &line) {
         try {
             end = stoi( _info.substr( index_1 + 4, index_2 - index_1 - 4 ) );
         } catch(...) {
-            _params.verbose && std::cout << " Unable to convert pos into int for sv id" << _id << std::endl;
+            _params.verbose && std::cout << " Unable to convert end into int for sv id" << _id << std::endl;
             return false;
         }
 
@@ -81,7 +81,7 @@ bool process_line(params &_params, std::string &line) {
         try {
             outer_start = stoi( temp ) + pos;
         } catch(...) {
-            _params.verbose && std::cout << " Unable to convert into int " << temp << " for cipos" << std::endl;
+            _params.verbose && std::cout << " Unable to convert outer_start " << temp << " into int for cipos, id " << _id << std::endl;
             return false;
         }
         iss >> temp;
@@ -89,7 +89,7 @@ bool process_line(params &_params, std::string &line) {
         try {
             inner_start = stoi( temp ) + pos;
         } catch(...) {
-            _params.verbose && std::cout << " Unable to convert into int " << temp << " for cipos" << std::endl;
+            _params.verbose && std::cout << " Unable to convert inner_start " << temp << " into int for cipos, id " << _id << std::endl;
             return false;
         }
 
@@ -98,12 +98,12 @@ bool process_line(params &_params, std::string &line) {
             goto refining_ins;
 
         if ( sv_type != "DEL" && sv_type != "DEL:ME" && sv_type != "INV" ) {
-            _params.verbose && std::cout << " SV Type is " << sv_type << ". Program is unable to handle it." << std::endl;
+            _params.verbose && std::cout << " SV Type is " << sv_type << ". Program is unable to handle it. ID " << _id << std::endl;
             return false;
         }
 
         if ( line.find("CIEND") == std::string::npos ) {
-            _params.verbose && std::cout << " Missing CIEND in info field for DEL and INV." << std::endl;
+            _params.verbose && std::cout << " Missing CIEND in info field for DEL and INV. ID " << _id << std::endl;
             return false;
         }
 
@@ -117,7 +117,7 @@ bool process_line(params &_params, std::string &line) {
         try {
             inner_end = stoi( temp ) + end;
         } catch(...) {
-            _params.verbose && std::cout << " Unable to convert into int " << temp << " for ciend" << std::endl;
+            _params.verbose && std::cout << " Unable to convert inner_end " << temp << " into int for ciend, id " << _id << std::endl;
             return false;
         }
         
@@ -125,7 +125,7 @@ bool process_line(params &_params, std::string &line) {
         try {
             outer_end = stoi( temp ) + end;
         } catch(...) {
-            _params.verbose && std::cout << "Unable to convert into int " << temp << " for ciend" << std::endl;
+            _params.verbose && std::cout << " Unable to convert outer_end " << temp << " into int for ciend, id " << _id << std::endl;
             return false;
         }
 
@@ -136,23 +136,27 @@ bool process_line(params &_params, std::string &line) {
         if ( res.refined_start != -1 ) {
             index_1 = _info.find("CIPOS=");
             index_2 = _info.find(";", index_1);
-            _info.erase( index_1, index_2 - index_1 + 1 );
+            _info.replace( index_1 + 6, index_2 - index_1 - 6, "0,0" );
             _pos = std::to_string(res.refined_start);
-
-            index_1 = _info.find("END=") != 0 ? _info.find(";END=") + 1 : 0;
-            index_2 = _info.find(";", index_1);
-            _info.erase( index_1, index_2 - index_1 + 1 );
-            _info = _info + std::string( ";END=" ) + std::to_string(res.refined_start+1);
 
             // If there is no consensus on sv length, then it will place SVLEN
             if ( res.svlen != -1 ) {
                 if ( _info.find("SVLEN=") != std::string::npos ) {
                     index_1 = _info.find("SVLEN=");
                     index_2 = _info.find(";", index_1);
-                    _info.erase( index_1, index_2 - index_1 + 1);
+                    _info.replace( index_1 + 6, index_2 - index_1 - 6, std::to_string( res.svlen ) );
+                } else {
+                    _info = _info + std::string( ";SVLEN=" ) + std::to_string( res.svlen );
                 }
-                
-                _info = _info + std::string( ";SVLEN=" ) + std::to_string( res.svlen );
+
+            }
+
+            if ( _info.find(";END=") != std::string::npos || _info.find("END=") == 0 ) {
+                index_1 = _info.find("END=") != 0 ? _info.find(";END=") + 1 : 0;
+                index_2 = _info.find(";", index_1);
+                _info.replace( index_1 + 4, index_2 - index_1 - 4, std::to_string( res.refined_start + 1 ) );
+            } else {
+                _info = _info + std::string( ";END=" ) + std::to_string( res.refined_start + 1 );
             }
         }
         
@@ -168,24 +172,32 @@ bool process_line(params &_params, std::string &line) {
             if ( res.refined_start != -1 ) {
                 index_1 = _info.find("CIPOS=");
                 index_2 = _info.find(";", index_1);
-                _info.erase( index_1, index_2 - index_1 + 1 );
-                _pos = std::to_string(res.refined_start); 
+                _info.replace( index_1 + 6, index_2 - index_1 - 6, "0,0" );
+                _pos = std::to_string( res.refined_start ); 
             }
             
             if ( res.refined_end != -1 ) {
                 index_1 = _info.find("CIEND=");
                 index_2 = _info.find(";", index_1);
-                _info.erase( index_1, index_2 - index_1 + 1 );
+                _info.replace( index_1 + 6, index_2 - index_1 - 6, "0,0" );
             }
 
             if ( res.refined_start != -1 && res.refined_end != -1 ) {
                 if ( _info.find("SVLEN=") != std::string::npos ) {
                     index_1 = _info.find("SVLEN=");
                     index_2 = _info.find(";", index_1);
-                    _info.erase( index_1, index_2 - index_1 + 1);
+                    _info.replace( index_1 + 6, index_2 - index_1 - 6, std::to_string( res.refined_end - res.refined_start + 1 ) );
+                } else {
+                    _info = _info + std::string( ";SVLEN=" ) + std::to_string( res.refined_end - res.refined_start + 1 );
                 }
-                
-                _info = _info + std::string( ";SVLEN=" ) + std::to_string( abs(end - pos + 1) );
+
+                if ( _info.find(";END=") != std::string::npos || _info.find("END=") == 0 ) {
+                    index_1 = _info.find("END=") != 0 ? _info.find(";END=") + 1 : 0;;
+                    index_2 = _info.find(";", index_1);
+                    _info.replace( index_1 + 4, index_2 - index_1 - 4, std::to_string( res.refined_end ) );
+                } else {
+                    _info = _info + std::string( ";END=" ) + std::to_string( res.refined_end );
+                }
             }
             
             _params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
@@ -193,30 +205,38 @@ bool process_line(params &_params, std::string &line) {
         } 
 
         if ( sv_type == "INV" ) {
-            
+
             res = sv::inversion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params);
             
             if ( res.refined_start != -1 ) {
                 index_1 = _info.find("CIPOS=");
                 index_2 = _info.find(";", index_1);
-                _info.erase( index_1, index_2 - index_1 + 1 );
-                _pos = std::to_string(res.refined_start); 
+                _info.replace( index_1 + 6, index_2 - index_1 - 6, "0,0" );
+                _pos = std::to_string( res.refined_start ); 
             }
             
             if ( res.refined_end != -1 ) {
                 index_1 = _info.find("CIEND=");
                 index_2 = _info.find(";", index_1);
-                _info.erase( index_1, index_2 - index_1 + 1);
+                _info.replace( index_1 + 6, index_2 - index_1 - 6, "0,0" );
             }
 
             if ( res.refined_start != -1 && res.refined_end != -1 ) {
                 if ( _info.find("SVLEN=") != std::string::npos ) {
                     index_1 = _info.find("SVLEN=");
                     index_2 = _info.find(";", index_1);
-                    _info.erase( index_1, index_2 - index_1 + 1);
+                    _info.replace( index_1 + 6, index_2 - index_1 - 6, std::to_string( res.refined_end - res.refined_start + 1 ) );
+                } else {
+                    _info = _info + std::string( ";SVLEN=" ) + std::to_string( res.refined_end - res.refined_start + 1 );
                 }
-                
-                _info = _info + std::string( ";SVLEN=" ) + std::to_string( abs(end - pos + 1) );
+
+                if ( _info.find("END=") != std::string::npos || _info.find("END=") == 0 ) {
+                    index_1 = _info.find("END=") != 0 ? _info.find(";END=") + 1 : 0;
+                    index_2 = _info.find(";", index_1);
+                    _info.replace( index_1 + 4, index_2 - index_1 - 4, std::to_string( res.refined_end ) );
+                } else {
+                    _info = _info + std::string( ";END=" ) + std::to_string( res.refined_end );
+                }
             }
             
             _params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
