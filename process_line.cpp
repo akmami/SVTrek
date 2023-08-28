@@ -3,10 +3,11 @@
 
 #include "static_variables.h"
 #include "params.h"
+#include "thread_data.h"
 #include "variations.cpp"
 
 
-bool process_line(params &_params, std::string &line) {
+std::string& process_line(params &_params, std::string &line, thread_data &_thread_data) {
 
     // extract data
     if ( line.find("CIPOS") != std::string::npos && line.find("SVTYPE=") != std::string::npos ) {
@@ -36,7 +37,7 @@ bool process_line(params &_params, std::string &line) {
                 chrom = stoi(_chrom.substr(3));
             } catch (...) {
                 // _params.verbose && std::cout << " Unable to convert chrom into int for sv id " << _id << std::endl;
-                return false;
+                return line;
             }
         }
 
@@ -45,7 +46,7 @@ bool process_line(params &_params, std::string &line) {
             pos = stoi(_pos);
         } catch (...) {
             _params.verbose && std::cout << " Unable to convert pos into int for sv id " << _id << std::endl;
-            return false;
+            return line;
         }
 
         result res;
@@ -67,7 +68,7 @@ bool process_line(params &_params, std::string &line) {
             end = stoi( _info.substr( index_1 + 4, index_2 - index_1 - 4 ) );
         } catch(...) {
             _params.verbose && std::cout << " Unable to convert end into int for sv id" << _id << std::endl;
-            return false;
+            return line;
         }
 
         // CIPOS
@@ -82,7 +83,7 @@ bool process_line(params &_params, std::string &line) {
             outer_start = stoi( temp ) + pos;
         } catch(...) {
             _params.verbose && std::cout << " Unable to convert outer_start " << temp << " into int for cipos, id " << _id << std::endl;
-            return false;
+            return line;
         }
         iss >> temp;
         
@@ -90,7 +91,7 @@ bool process_line(params &_params, std::string &line) {
             inner_start = stoi( temp ) + pos;
         } catch(...) {
             _params.verbose && std::cout << " Unable to convert inner_start " << temp << " into int for cipos, id " << _id << std::endl;
-            return false;
+            return line;
         }
 
 
@@ -99,12 +100,12 @@ bool process_line(params &_params, std::string &line) {
 
         if ( sv_type != "DEL" && sv_type != "DEL:ME" && sv_type != "INV" ) {
             _params.verbose && std::cout << " SV Type is " << sv_type << ". Program is unable to handle it. ID " << _id << std::endl;
-            return false;
+            return line;
         }
 
         if ( line.find("CIEND") == std::string::npos ) {
             _params.verbose && std::cout << " Missing CIEND in info field for DEL and INV. ID " << _id << std::endl;
-            return false;
+            return line;
         }
 
         // CIEND
@@ -118,7 +119,7 @@ bool process_line(params &_params, std::string &line) {
             inner_end = stoi( temp ) + end;
         } catch(...) {
             _params.verbose && std::cout << " Unable to convert inner_end " << temp << " into int for ciend, id " << _id << std::endl;
-            return false;
+            return line;
         }
         
         iss >> temp;
@@ -126,13 +127,13 @@ bool process_line(params &_params, std::string &line) {
             outer_end = stoi( temp ) + end;
         } catch(...) {
             _params.verbose && std::cout << " Unable to convert outer_end " << temp << " into int for ciend, id " << _id << std::endl;
-            return false;
+            return line;
         }
 
         goto refining_other;
         
         refining_ins:
-        res = sv::insertion(chrom, outer_start, inner_start, pos, _params);
+        res = sv::insertion(chrom, outer_start, inner_start, pos, _params, _thread_data);
         if ( res.refined_start != -1 ) {
             index_1 = _info.find("CIPOS=");
             index_2 = _info.find(";", index_1);
@@ -160,14 +161,31 @@ bool process_line(params &_params, std::string &line) {
             }
         }
         
-        _params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
-        return true;
+        //_params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
+        line = _chrom;
+        line.append("\t");
+        line.append(_pos);
+        line.append("\t");
+        line.append(_id);
+        line.append("\t");
+        line.append(_ref);
+        line.append("\t");
+        line.append(_alt);
+        line.append("\t");
+        line.append(_qual);
+        line.append("\t");
+        line.append(_filter);
+        line.append("\t");
+        line.append(_info);
+        line.append("\t");
+        line.append(_format);
+        return line;
         
         
         refining_other:
         if ( sv_type == "DEL" || sv_type == "DEL:ME" ) {
 
-            res = sv::deletion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params);
+            res = sv::deletion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params, _thread_data);
 
             if ( res.refined_start != -1 ) {
                 index_1 = _info.find("CIPOS=");
@@ -200,13 +218,30 @@ bool process_line(params &_params, std::string &line) {
                 }
             }
             
-            _params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
-            return true;
+            //_params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
+            line = _chrom;
+            line.append("\t");
+            line.append(_pos);
+            line.append("\t");
+            line.append(_id);
+            line.append("\t");
+            line.append(_ref);
+            line.append("\t");
+            line.append(_alt);
+            line.append("\t");
+            line.append(_qual);
+            line.append("\t");
+            line.append(_filter);
+            line.append("\t");
+            line.append(_info);
+            line.append("\t");
+            line.append(_format);
+            return line;
         } 
 
         if ( sv_type == "INV" ) {
 
-            res = sv::inversion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params);
+            res = sv::inversion(chrom, outer_start, inner_start, inner_end, outer_end, pos, end, _params, _thread_data);
             
             if ( res.refined_start != -1 ) {
                 index_1 = _info.find("CIPOS=");
@@ -239,16 +274,32 @@ bool process_line(params &_params, std::string &line) {
                 }
             }
             
-            _params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
-            return true;
+            //_params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
+            line = _chrom;
+            line.append("\t");
+            line.append(_pos);
+            line.append("\t");
+            line.append(_id);
+            line.append("\t");
+            line.append(_ref);
+            line.append("\t");
+            line.append(_alt);
+            line.append("\t");
+            line.append(_qual);
+            line.append("\t");
+            line.append(_filter);
+            line.append("\t");
+            line.append(_info);
+            line.append("\t");
+            line.append(_format);
+            return line;
         }
 
         _params.verbose && std::cout << "No SV refiner is called." << std::endl;
-        return false;
+        return line;
     }
-    
-    _params.out_vcf << line;
-    return false;
+
+    return line;
 }
 
 #endif
