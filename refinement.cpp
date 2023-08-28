@@ -5,6 +5,7 @@
 #include "htslib.h"
 #include "static_variables.h"
 #include "params.h"
+#include "thread_data.h"
 #include <vector>
 #include <limits>
 #include <cmath>
@@ -86,7 +87,7 @@ int consensus_pos(std::vector<int> locations, int imprecise_pos, params &_params
 
 // MARK: REFINEMENT
 
-void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos, result &res, params &_params, svtype type=DELETION) {
+void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos, result &res, params &_params, thread_data &_thread_data, svtype type=DELETION) {
 
     // sam_read1 variables
     int32_t pos;
@@ -97,11 +98,11 @@ void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos
     bam1_t *aln = bam_init1();
     hts_itr_t *iter;
 
-    iter = sam_itr_queryi( _params.htslib.bam_file_index, chrom - 1, outer_start - _params.wider_interval, inner_start + _params.narrow_interval);
+    iter = sam_itr_queryi( _thread_data.htslib.bam_file_index, chrom - 1, outer_start - _params.wider_interval, inner_start + _params.narrow_interval);
     std::vector<int> start_positions;
     
     if (iter) {
-        while (sam_itr_next( _params.htslib.fp_in, iter, aln ) > 0) {
+        while (sam_itr_next( _thread_data.htslib.fp_in, iter, aln ) > 0) {
 
             pos = aln->core.pos;
             uint32_t *cigar = bam_get_cigar(aln);
@@ -139,7 +140,7 @@ void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos
 };
 
 
-void refine_end(int chrom, int inner_end, int outer_end, int imprecise_pos, result &res, params &_params, svtype type=DELETION) {
+void refine_end(int chrom, int inner_end, int outer_end, int imprecise_pos, result &res, params &_params, thread_data &_thread_data, svtype type=DELETION) {
     
     // sam_read1 variables
     int32_t pos;
@@ -151,10 +152,10 @@ void refine_end(int chrom, int inner_end, int outer_end, int imprecise_pos, resu
     hts_itr_t *iter;
 
     std::vector<int> end_positions;
-    iter = sam_itr_queryi( _params.htslib.bam_file_index, chrom - 1, inner_end - _params.wider_interval, outer_end + _params.narrow_interval);
+    iter = sam_itr_queryi( _thread_data.htslib.bam_file_index, chrom - 1, inner_end - _params.wider_interval, outer_end + _params.narrow_interval);
     
     if (iter) {
-        while (sam_itr_next( _params.htslib.fp_in, iter, aln ) > 0) {
+        while (sam_itr_next( _thread_data.htslib.fp_in, iter, aln ) > 0) {
             pos = aln->core.pos;
             uint32_t *cigar = bam_get_cigar(aln);
             
@@ -190,7 +191,7 @@ void refine_end(int chrom, int inner_end, int outer_end, int imprecise_pos, resu
 };
 
 
-void refine_point(int chrom, int start, int end, int imprecise_pos, result &res, params &_params, svtype type=INSERTION) {
+void refine_point(int chrom, int start, int end, int imprecise_pos, result &res, params &_params, thread_data &_thread_data, svtype type=INSERTION) {
     
     // sam_read1 variables
     int32_t pos;
@@ -201,12 +202,12 @@ void refine_point(int chrom, int start, int end, int imprecise_pos, result &res,
     bam1_t *aln = bam_init1();
     hts_itr_t *iter;
 
-    iter = sam_itr_queryi( _params.htslib.bam_file_index, chrom - 1, start - _params.wider_interval, end + _params.narrow_interval);
+    iter = sam_itr_queryi( _thread_data.htslib.bam_file_index, chrom - 1, start - _params.wider_interval, end + _params.narrow_interval);
     std::vector<int> positions;
     std::vector<int> lengths;
     
     if (iter) {
-        while (sam_itr_next( _params.htslib.fp_in, iter, aln ) > 0) {
+        while (sam_itr_next( _thread_data.htslib.fp_in, iter, aln ) > 0) {
             pos = aln->core.pos;
             uint32_t *cigar = bam_get_cigar(aln);
 
