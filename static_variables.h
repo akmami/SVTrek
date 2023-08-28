@@ -25,4 +25,6 @@
 #define __SV_MIN_LENGTH           50
 //#define CONSENSUS_COUNT_PERC    0.3
 
+#define __THREAD_NUMBER           32
+
 #endif
