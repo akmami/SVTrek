@@ -119,6 +119,9 @@ void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos
                 if ( bam_cigar_op( cigar[i] ) != __CIGAR_INSERTION && bam_cigar_op( cigar[i] ) != __CIGAR_SOFT_CLIP && bam_cigar_op( cigar[i] ) != __CIGAR_HARD_CLIP && bam_cigar_op( cigar[i] ) != __CIGAR_PADDING ) {
                     reference_pos += bam_cigar_oplen( cigar[i] );
                 }
+
+                if ( inner_start < reference_pos )
+                    break;
             }
             
             // Refinement base on Breakpoints
@@ -126,8 +129,7 @@ void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos
                 start_positions.push_back(reference_pos+1);
             }
 
-            if ( inner_start < reference_pos )
-                    break;
+            
         }
     } else {
         _params.verbose && std::cout << " Invalid interval, iter is null. pos: " << imprecise_pos << std::endl;
@@ -227,6 +229,9 @@ void refine_point(int chrom, int start, int end, int imprecise_pos, result &res,
                     positions.push_back(reference_pos+1);
                     lengths.push_back( bam_cigar_oplen( cigar[i] ) );
                 }
+
+                if ( end < reference_pos )
+                    break;
             }
             if ( start <= reference_pos && reference_pos <= end ) {
                 positions.push_back(reference_pos+1);
