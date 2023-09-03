@@ -160,6 +160,15 @@ std::string& process_line(params &_params, std::string &line, thread_data &_thre
                 _info = _info + std::string( ";END=" ) + std::to_string( res.refined_start + 1 );
             }
         }
+
+        if ( _info.find("SVELDT=") != std::string::npos ) {
+            index_1 = _info.find("SVELDT=");
+            index_2 = _info.find(";", index_1);
+            _info.replace( index_1 + 8, index_2 - index_1 - 8, ( res.refined_start != -1 ? "SUCCESS" : "INCORRECT" ) );
+        } else {
+            _info = _info + std::string( ";SVELDT=" ) + ( res.refined_start != -1 ? "SUCCESS" : "INCORRECT" );
+        }
+
         
         //_params.out_vcf << _chrom << '\t' << _pos << '\t' <<_id << '\t' << _ref << '\t' << _alt << '\t' << _qual << '\t' << _filter << '\t' << _info << '\t' << _format << std::endl;
         line = _chrom;
@@ -210,11 +219,32 @@ std::string& process_line(params &_params, std::string &line, thread_data &_thre
                 }
 
                 if ( _info.find(";END=") != std::string::npos || _info.find("END=") == 0 ) {
-                    index_1 = _info.find("END=") != 0 ? _info.find(";END=") + 1 : 0;;
+                    index_1 = _info.find("END=") != 0 ? _info.find(";END=") + 1 : 0;
                     index_2 = _info.find(";", index_1);
                     _info.replace( index_1 + 4, index_2 - index_1 - 4, std::to_string( res.refined_end ) );
                 } else {
                     _info = _info + std::string( ";END=" ) + std::to_string( res.refined_end );
+                }
+            }
+
+            if ( _info.find("SVELDT=") != std::string::npos ) {
+                index_1 = _info.find("SVELDT=");
+                index_2 = _info.find(";", index_1);
+                if ( res.refined_start != -1 && res.refined_end != -1) {
+                    _info.replace( index_1 + 8, index_2 - index_1 - 8, "SUCCESS" );
+                } else if ( res.refined_start != -1 || res.refined_end != -1 ) {
+                    _info.replace( index_1 + 8, index_2 - index_1 - 8, "PARTIAL" );
+                } else {
+                    _info.replace( index_1 + 8, index_2 - index_1 - 8, "INCORRECT" );
+                }
+            } else {
+                _info = _info + std::string( ";SVELDT=" ) + ( res.refined_start != -1 ? "SUCCESS" : "INCORRECT" );
+                if ( res.refined_start != -1 && res.refined_end != -1) {
+                    _info = _info + std::string( ";SVELDT=SUCCESS" );
+                } else if ( res.refined_start != -1 || res.refined_end != -1 ) {
+                    _info = _info + std::string( ";SVELDT=PARTIAL" );
+                } else {
+                    _info = _info + std::string( ";SVELDT=INCORRECT" );
                 }
             }
             
@@ -271,6 +301,27 @@ std::string& process_line(params &_params, std::string &line, thread_data &_thre
                     _info.replace( index_1 + 4, index_2 - index_1 - 4, std::to_string( res.refined_end ) );
                 } else {
                     _info = _info + std::string( ";END=" ) + std::to_string( res.refined_end );
+                }
+            }
+
+            if ( _info.find("SVELDT=") != std::string::npos ) {
+                index_1 = _info.find("SVELDT=");
+                index_2 = _info.find(";", index_1);
+                if ( res.refined_start != -1 && res.refined_end != -1) {
+                    _info.replace( index_1 + 8, index_2 - index_1 - 8, "SUCCESS" );
+                } else if ( res.refined_start != -1 || res.refined_end != -1 ) {
+                    _info.replace( index_1 + 8, index_2 - index_1 - 8, "PARTIAL" );
+                } else {
+                    _info.replace( index_1 + 8, index_2 - index_1 - 8, "INCORRECT" );
+                }
+            } else {
+                _info = _info + std::string( ";SVELDT=" ) + ( res.refined_start != -1 ? "SUCCESS" : "INCORRECT" );
+                if ( res.refined_start != -1 && res.refined_end != -1) {
+                    _info = _info + std::string( ";SVELDT=SUCCESS" );
+                } else if ( res.refined_start != -1 || res.refined_end != -1 ) {
+                    _info = _info + std::string( ";SVELDT=PARTIAL" );
+                } else {
+                    _info = _info + std::string( ";SVELDT=INCORRECT" );
                 }
             }
             
