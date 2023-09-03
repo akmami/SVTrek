@@ -61,10 +61,6 @@ if arg_out is None:
     arg_out = arg_vcf[:-4] + ".sim.vcf"
     print("Output file is set '{}' as defualt".format(arg_out))
 
-if arg_tag is None:
-    arg_tag = "SVTYPE"
-    print("Default tag for sv type is set to '{}'".format(arg_tag))
-
 if arg_tag == "None":
     arg_tag = None
 
@@ -102,11 +98,11 @@ with open(arg_vcf, "r") as f:
         if intro:
             if line.startswith("##INFO"):
                 if not description:
-                    out_f.write('##INFO=<ID=SVELDT,Description="Line has been changed for sımulation purpose by SVELDT">\n')
+                    out_f.write('##INFO=<ID=SVELDT,Number=1,Type=String,Description="The SV is tagged by SVELDT program:SIMULATED=The SV is only simulated var varsim.py and not processed by sveldt yet, SUCCESS=SVELDT was able to refine all given intervals, PARTIAL=SVELDT was able to refine only one of the points, INCORRECT=SVELDT detected invalid SV."\n')
                     description = True
             if line.startswith("#CHROM"):
                 if not description:
-                    out_f.write('##INFO=<ID=SVELDT,Description="Line has been changed for sımulation purpose by SVELDT">\n')
+                    out_f.write('##INFO=<ID=SVELDT,Number=1,Type=String,Description="The SV is tagged by SVELDT program:SIMULATED=The SV is only simulated var varsim.py and not processed by sveldt yet, SUCCESS=SVELDT was able to refine all given intervals, PARTIAL=SVELDT was able to refine only one of the points, INCORRECT=SVELDT detected invalid SV."\n')
                     description = True
                 intro = False
             
@@ -124,7 +120,7 @@ with open(arg_vcf, "r") as f:
         
         # find sv type
         sv_type = ""
-        sv_info_tag = ""
+        sv_info_tag = "Invalid"
         sv_len = -1
 
         if arg_tag is not None:
@@ -182,10 +178,12 @@ with open(arg_vcf, "r") as f:
             splitted_line[7] += ";CIEND={},{}".format(inner_end, outer_end)
 
         splitted_line[7] += ";END={}".format(end)
-        splitted_line[7] += ";SVELDT"
+        splitted_line[7] += ";SVELDT=SIMULATED"
         
         if sv_info_tag in splitted_line[7]:
             splitted_line[7] = splitted_line[7].replace(sv_info_tag, "SVTYPE={}".format(sv_type))
+        else:
+            splitted_line[7] = splitted_line[7] + ";SVTYPE={}".format(sv_type)
 
         if splitted_line[2] == ".":
             splitted_line[2] = "GoldStandard{}".format(id_index)
