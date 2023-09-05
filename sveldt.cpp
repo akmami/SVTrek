@@ -146,12 +146,27 @@ int process_vcf(params &_params) {
     
     thread_index = 0;
     int line_index = 0;
+    bool description = false;
 
     while (getline(vcf, line)) {
         
         line_index++;
         
         if (line.at(0) == '#') {
+            if ( !strncmp(line.c_str(), "##INFO", 6 ) ) {
+                if ( !description ) {
+                    _params.out_vcf << "##INFO=<ID=SVELDT,Number=1,Type=String,Description=\"The SV is tagged by SVELDT program:SIMULATED=The SV is only simulated var varsim.py and not processed by sveldt yet, SUCCESS=SVELDT was able to refine all given intervals, PARTIAL=SVELDT was able to refine only one of the points, INCORRECT=SVELDT detected invalid SV.\"" << std::endl;
+                    description = true;
+                }
+            }
+
+            if ( !strncmp(line.c_str(), "#CHROM", 6 ) ) {
+                if ( !description ) {
+                    _params.out_vcf << "##INFO=<ID=SVELDT,Number=1,Type=String,Description=\"The SV is tagged by SVELDT program:SIMULATED=The SV is only simulated var varsim.py and not processed by sveldt yet, SUCCESS=SVELDT was able to refine all given intervals, PARTIAL=SVELDT was able to refine only one of the points, INCORRECT=SVELDT detected invalid SV.\"" << std::endl;
+                    description = true;
+                }
+            }
+
             _params.out_vcf << line << std::endl;
             continue;
         }
