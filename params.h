@@ -18,7 +18,7 @@ struct params {
     int consensus_min_count;
     int thread_number;
 
-    bool isInit;
+    bool isInit=false;
 };
 
 void initialize_params(params &_params) {
