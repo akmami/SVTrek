@@ -1,18 +1,27 @@
-CC=g++
-CFLAGS =  -O3 -funroll-loops -g -I htslib
-LDFLAGS = htslib/libhts.a -lz -lm -lpthread -llzma -lbz2 -lcurl
-SOURCES = sveldt.cpp
-OBJECTS = $(SOURCES:.cpp=.o)
-EXECUTABLE = sveldt
+TARGET := svtrek
+SRCS := $(wildcard *.cpp)
+#SRCS := $(wildcard sveldt.cpp)
+OBJS := $(SRCS:.cpp=.o)
 
-all: $(SOURCES) $(EXECUTABLE)
-	rm -rf *.o
+# directories
+CURRENT_DIR := $(shell pwd)
+BIN_DIR := $(CURRENT_DIR)/bin
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+# compiler
+GXX := g++
+CXXFLAGS = -Wall -Wextra -O2 -std=c++11
+TIME := /usr/bin/time -v
 
-.cpp.o:
-	$(CC) -c $(CFLAGS) $< -o $@
+# object files that need lcptools
+HTSLIB_CXXFLAGS := -I$(CURRENT_DIR)/htslib/include
+HTSLIB_LDFLAGS := -L$(CURRENT_DIR)/htslib/lib -lhts -Wl,-rpath,$(CURRENT_DIR)/htslib/lib -pthread
+
+$(TARGET): $(OBJS)
+	$(GXX) $(CXXFLAGS) -o $@ $^ $(HTSLIB_LDFLAGS)
+	rm *.o
+
+%.o: %.cpp
+	$(GXX) $(CXXFLAGS) $(HTSLIB_CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -rf *.o sveldt
