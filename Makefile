@@ -1,6 +1,5 @@
 TARGET := svtrek
 SRCS := $(wildcard *.cpp)
-#SRCS := $(wildcard sveldt.cpp)
 OBJS := $(SRCS:.cpp=.o)
 
 # directories
@@ -24,4 +23,4 @@ $(TARGET): $(OBJS)
 	$(GXX) $(CXXFLAGS) $(HTSLIB_CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -rf *.o sveldt
+	rm -rf *.o svtrek

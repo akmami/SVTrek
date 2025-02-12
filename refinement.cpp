@@ -5,19 +5,17 @@
  */
 int consensus(std::vector<int> &lengths, params &_params) {
     int consensus_val = -1;
-    int max_count     = _params.consensus_min_count - 1;
+    int max_count = _params.consensus_min_count - 1;
 
     std::sort(lengths.begin(), lengths.end());
     for (size_t i = 0; i < lengths.size(); i++) {
         int count = 1;
         // Count how many values fall within consensus_interval of lengths[i]
-        for (size_t j = i + 1; j < lengths.size()
-                               && lengths[j] <= lengths[i] + _params.consensus_interval; j++)
-        {
+        for (size_t j = i + 1; j < lengths.size() && lengths[j] <= lengths[i] + _params.consensus_interval; j++) {
             count++;
         }
         if (count > max_count) {
-            max_count    = count;
+            max_count = count;
             consensus_val = lengths[i];
         }
     }
@@ -30,26 +28,23 @@ int consensus(std::vector<int> &lengths, params &_params) {
  */
 int consensus_pos(std::vector<int> &locations, int imprecise_pos, params &_params) {
     int consensus_val = -1;
-    int max_count     = _params.consensus_min_count - 1;
-    int distance      = INT_MAX;
+    int max_count = _params.consensus_min_count - 1;
+    int distance = INT_MAX;
 
     std::sort(locations.begin(), locations.end());
     for (size_t i = 0; i < locations.size(); i++) {
         int count = 1;
-        for (size_t j = i + 1; j < locations.size()
-                               && locations[j] <= locations[i] + _params.consensus_interval; j++)
-        {
+        for (size_t j = i + 1; j < locations.size() && locations[j] <= locations[i] + _params.consensus_interval; j++) {
             count++;
         }
         int candidate = locations[i];
-        bool better_count         = (count > max_count);
-        bool same_count_but_closer = (count == max_count
-                                      && std::abs(imprecise_pos - candidate) < distance);
+        bool better_count = (count > max_count);
+        bool same_count_but_closer = (count == max_count && std::abs(imprecise_pos - candidate) < distance);
 
         if (better_count || same_count_but_closer) {
-            max_count    = count;
+            max_count = count;
             consensus_val = candidate;
-            distance     = std::abs(imprecise_pos - candidate);
+            distance = std::abs(imprecise_pos - candidate);
         }
     }
     return consensus_val;
@@ -58,15 +53,7 @@ int consensus_pos(std::vector<int> &locations, int imprecise_pos, params &_param
 /**
  * refine_start()
  */
-void refine_start(int chrom,
-                  int outer_start,
-                  int inner_start,
-                  int imprecise_pos,
-                  result &res,
-                  params &_params,
-                  thread_data &_thread_data,
-                  svtype type)
-{
+void refine_start(int chrom, int outer_start, int inner_start, int imprecise_pos, result &res, params &_params, thread_data &_thread_data, svtype type) {
     // if we don't use 'type', silence the warning
     (void)type;
 
@@ -114,15 +101,7 @@ void refine_start(int chrom,
 /**
  * refine_end()
  */
-void refine_end(int chrom,
-                int inner_end,
-                int outer_end,
-                int imprecise_pos,
-                result &res,
-                params &_params,
-                thread_data &_thread_data,
-                svtype type)
-{
+void refine_end(int chrom, int inner_end, int outer_end, int imprecise_pos, result &res, params &_params, thread_data &_thread_data, svtype type) {
     (void)type;
 
     std::vector<int> end_positions;
@@ -165,10 +144,7 @@ void refine_end(int chrom,
 /**
  * refine_point() - used for insertions or single-point refinement
  */
-void refine_point(int chrom,
-                  int start,
-                  int end,
-                  int imprecise_pos,
+void refine_point(int chrom, int start, int end, int imprecise_pos,
                   result &res,
                   params &_params,
                   thread_data &_thread_data,
