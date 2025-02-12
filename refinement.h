@@ -8,31 +8,10 @@
 #include <iostream>
 #include <vector>
 
-result deletion(int chrom,
-                int outer_start,
-                int inner_start,
-                int inner_end,
-                int outer_end,
-                int imprecise_pos,
-                int imprecise_end,
-                struct params &_params,
-                struct thread_data &_thread_data);
+result deletion(int chrom, int outer_start, int inner_start, int inner_end, int outer_end, int imprecise_pos, int imprecise_end, struct params &_params, struct thread_data &_thread_data);
 
-result insertion(int chrom,
-                 int outer_start,
-                 int inner_start,
-                 int imprecise_pos,
-                 struct params &_params,
-                 struct thread_data &_thread_data);
+result insertion(int chrom, int outer_start, int inner_start, int imprecise_pos, struct params &_params, struct thread_data &_thread_data);
 
-result inversion(int chrom,
-                 int outer_start,
-                 int inner_start,
-                 int inner_end,
-                 int outer_end,
-                 int imprecise_pos,
-                 int imprecise_end,
-                 struct params &_params,
-                 struct thread_data &_thread_data);
+result inversion(int chrom, int outer_start, int inner_start, int inner_end, int outer_end, int imprecise_pos, int imprecise_end, struct params &_params, struct thread_data &_thread_data);
 
 #endif // __REFINEMENT_H__
