@@ -5,6 +5,6 @@
 #include <unistd.h>
 #include <getopt.h>
 
-void init(int argc, char *argv[], args &params);
+void init(int argc, char *argv[], args *params);
 
 #endif

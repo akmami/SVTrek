@@ -1,13 +1,13 @@
 TARGET := svtrek
-SRCS := $(wildcard *.cpp)
-OBJS := $(SRCS:.cpp=.o)
+SRCS := $(wildcard *.c)
+OBJS := $(SRCS:.c=.o)
 
 # directories
 CURRENT_DIR := $(shell pwd)
 BIN_DIR := $(CURRENT_DIR)/bin
 
 # compiler
-GXX := g++
+GXX := gcc
 CXXFLAGS = -Wall -Wextra -O2 -std=c++11
 TIME := /usr/bin/time -v
 
@@ -19,8 +19,16 @@ $(TARGET): $(OBJS)
 	$(GXX) $(CXXFLAGS) -o $@ $^ $(HTSLIB_LDFLAGS)
 	rm *.o
 
-%.o: %.cpp
+%.o: %.c
 	$(GXX) $(CXXFLAGS) $(HTSLIB_CXXFLAGS) -c $< -o $@
+
+install:
+	@echo "Installing htslib"
+	cd htslib && \
+	autoreconf -i && \
+	./configure && \
+	make && \
+	make prefix=$(CURRENT_DIR)/htslib install
 
 clean:
 	rm -rf *.o svtrek

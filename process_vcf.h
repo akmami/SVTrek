@@ -2,13 +2,12 @@
 #define __PROCESS_VCF_H__
 
 #include "params.h"
+#include "tpool.h"
 #include "refinement.h"
-#include <string>
-#include <vector>
-#include <sstream>
-#include <iostream>
-#include <cstring>  // for strncmp
+#include <string.h>
+#include <pthread.h>
 
-int process_vcf(struct params &_params);
+
+int process_vcf(args *params);
 
 #endif // __PROCESS_VCF_H__
