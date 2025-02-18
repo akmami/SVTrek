@@ -8,7 +8,7 @@ BIN_DIR := $(CURRENT_DIR)/bin
 
 # compiler
 GXX := gcc
-CXXFLAGS = -Wall -Wextra -O2 -std=c++11
+CXXFLAGS = -Wall -Wextra -O2
 TIME := /usr/bin/time -v
 
 # object files that need lcptools

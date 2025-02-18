@@ -59,7 +59,7 @@ void thread_func(void *_params) {
             break;
         }
 
-        char *chrom, *index, *info;
+        char *chrom, *index, *seq, *alt, *info;
         char *saveptr;
 
         chrom = strtok_r(line, "\t", &saveptr); // get chromosome name
@@ -71,13 +71,30 @@ void thread_func(void *_params) {
         }
         
         strtok_r(NULL, "\t", &saveptr); // skip ID
-        strtok_r(NULL, "\t", &saveptr); // skip sequence
-        strtok_r(NULL, "\t", &saveptr); // skip ALT alleles
+        seq = strtok_r(NULL, "\t", &saveptr); // skip sequence
+        int seq_len = strlen(seq);
+
+        alt = strtok_r(NULL, "\t", &saveptr); // skip ALT alleles
+        char *alt_saveptr;
+        char *alt_token = strtok_r(alt, ",", &alt_saveptr); // split ALT alleles by comma
+        size_t max_alt_len = 0;
+        size_t min_alt_len = 0x7FFFFFFF;
+        while (alt_token != NULL) {
+            if (strlen(alt_token) > max_alt_len) {
+                max_alt_len = strlen(alt_token);
+            }
+            if (strlen(alt_token) < min_alt_len) {
+                min_alt_len = strlen(alt_token);
+            }
+            alt_token = strtok_r(NULL, ",", &alt_saveptr);
+        }
+
         strtok_r(NULL, "\t", &saveptr); // skip QUAL alleles
         strtok_r(NULL, "\t", &saveptr); // skip FILTER alleles
         info = strtok_r(NULL, "\t", &saveptr); // get INFO alleles
         
-        int chrom_index, pos, end;
+        int chrom_index;
+        uint32_t pos, end;
         sv_type_t sv_type_enum = SV_UNKNOWN;
 
         // 1. Parse CHROM
@@ -90,10 +107,10 @@ void thread_func(void *_params) {
         // 2. Parse POS
         pos = strtol(index, NULL, 10);
         if (pos == 0 && index[0] != '0') { // Check for conversion error
+            fprintf(stderr, "[ERROR] Conversion error to pos %s\n", index);
             free(line);
             continue;
         }
-        pos = pos - 1;
 
         // 3. Parse SVTYPE=
         char *sv_start = strstr(info, "SVTYPE=");
@@ -113,8 +130,15 @@ void thread_func(void *_params) {
 
             sv_type_enum = parse_sv_type(sv_buf);
         } else {
-            free(line);
-            continue;
+            if (seq_len == 1 && __SV_MIN_LENGTH < max_alt_len) {
+                sv_type_enum = SV_INS;
+            } else if (__SV_MIN_LENGTH < seq_len && min_alt_len == 1) {
+                sv_type_enum = SV_DEL;
+            } else {
+                sv_type_enum = SV_UNKNOWN;
+                free(line);
+                continue;
+            }
         }
 
         // 4. Parse END=
@@ -138,25 +162,47 @@ void thread_func(void *_params) {
                 continue;
             }
         } else {
-            free(line);
-            continue;
+            end = pos + strlen(seq);
+        }
+
+        if (sv_type_enum == SV_DEL || sv_type_enum == SV_INV) {
+            if (end - pos < __SV_MIN_LENGTH) {
+                free(line);
+                continue;
+            }
         }
 
         // CIPOS and CIEND produce "outer" and "inner" coordinates
-        int outer_start = pos - targs->wider_interval;
-        int inner_start = pos + targs->narrow_interval;
-        int inner_end = end - targs->narrow_interval;
-        int outer_end = end + targs->narrow_interval;
+        uint32_t outer_start = pos - targs->wider_interval;
+        uint32_t inner_start = pos + targs->narrow_interval;
+        uint32_t inner_end = end - targs->narrow_interval;
+        uint32_t outer_end = end + targs->narrow_interval;
 
         switch (sv_type_enum) {
         case SV_INS:
-            // TODO
+            {
+                uint32_t ref_start;
+                insertion(chrom_index, outer_start, inner_start, pos, targs, &ref_start);
+                // printf("chr: %d, org pos: %u, ref pos: %u\n", chrom_index, pos, ref_start);
+            }
             break;
         case SV_DEL:
-            // TODO
+            {
+                if (__SV_MIN_LENGTH < end-pos) {
+                    uint32_t ref_start, ref_end;
+                    deletion(chrom_index, outer_start, inner_start, inner_end, outer_end, pos, end, targs, &ref_start, &ref_end);
+                    // printf("chr: %d, org pos: %u, org end: %u, ref pos: %u, ref end: %u\n", chrom_index, pos, end, ref_start, ref_end);
+                }
+            }
             break;
         case SV_INV:
-            // TODO
+            {   
+                if (__SV_MIN_LENGTH < end-pos) {
+                    uint32_t ref_start, ref_end;
+                    inversion(chrom_index, outer_start, inner_start, inner_end, outer_end, pos, end, targs, &ref_start, &ref_end);
+                    // printf("chr: %d, org pos: %u, org end: %u, ref pos: %u, ref end: %u\n", chrom_index, pos, end, ref_start, ref_end);
+                }
+            }
             break;
         default:
             fprintf(stderr, "[ERROR] Unkown type.\n");
@@ -197,7 +243,6 @@ int process_vcf(args *params) {
         t_args[i].hargs.fp_in = hts_open(params->bam_file, "r");
         t_args[i].hargs.bam_hdr = sam_hdr_read(t_args[i].hargs.fp_in);
         t_args[i].hargs.bam_file_index = sam_index_load(t_args[i].hargs.fp_in, params->bam_file);
-        t_args[i].ci_max_length = params->ci_max_length;
         t_args[i].wider_interval = params->wider_interval;
         t_args[i].narrow_interval = params->narrow_interval;
         t_args[i].consensus_interval = params->consensus_interval;

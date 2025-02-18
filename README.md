@@ -1,75 +1,63 @@
-# SVELDT
+# SVTrek
 
-SVELDT is a bioinformatic tool that refines structural variations(SV) using long-read analysis
+SVTrek is a bioinformatics tool for evaluating structural variation (SV) discoveries and can also perform SV discovery independently using long-read analysis.
 
 ## Remarks
 
-SVELDT is written in C++ and uses htslib library written in C. Please first install and compile htslib. Instructions are given below.
-
-Please visit [htslib](https://github.com/samtools/htslib/tree/4604554d424406c6764af8da17b370c1b525ae1a) repository for detailed instructions.
+SVTrek is written in C and utilizes the `HTSlib` library.
 
 ## Installation
 
-You need to first clone htslib and its submodule htscodecs. Please run the following command inside the cloned repository of SVELDT.
+Follow these steps to install `SVTrek`:
 
 ```
+# clone the repository
+git clone --recursive --depth 1 https://github.com/akmami/SVTrek.git
 
-git submodule update --init --recursive
+# install submodules
+cd SVTrek
+make install
 
-```
-
-Then, go to the htslib directory to compile the library.
-
-```
-
-cd htslib
-
-./configure
+# compile the program
 make
-make install
-
 ```
 
-The official installation documentation suggest to rum ./configure command if you need optional functionality to be enabled. If not, you can skip the command.
-
-The default installation directory of libraries, library header files, utilities, several manual pages, and a pkgconfig is /usr/local.
-This might cause permission errors if you installed the htslib in machines where you do not own the root privilege. Also, this configuration installs the library globally, but, you can change the directory by running the following command 
-
+## Usage
 ```
-# instead of 
-make install
-   
-# run   
-make prefix=DIR install
-
+./svtrek [-b|--bam BAM] [-v|--vcf VCF file] [OPTIONS]
 ```
 
-Minimal installation of htslib is
+## Required Parameters
+- `-b, --bam <BAM>`
+  - Specifies the BAM file to be processed.
+- `-v, --vcf <VCF file>`
+  - Specifies the VCF file to be used.
 
+## Options
+- `-o, --output <filename>`
+  - Specifies the output filename.
+  - **Default:** `svtrek.out`
+- `-t <num>`
+  - Number of threads to use for processing.
+  - **Default:** `4`
+- `--verbose`
+  - Enables verbose output.
+  - **Default:** `false`
+- `--wider-interval <num>`
+  - Defines the offset interval for the start of the reads.
+  - **Default:** `40000`
+- `--narrow-interval <num>`
+  - Defines the offset interval for the end of the reads.
+  - **Default:** `2000`
+- `--consensus-interval <num>`
+  - Specifies the interval that determines whether reads are considered to be in the same position.
+  - **Default:** `10`
+- `--consensus-min-count <num>`
+  - Minimum number of elements required for consensus determination.
+  - **Default:** `3`
+
+### Example Usage
 ```
-cd htslib
-make install
+./svtrek -b input.bam -v input.vcf
 ```
 
-If after these, you should have installed and compiled htslib. If you encounter any error, please visit [htslib](https://github.com/samtools/htslib/blob/4604554d424406c6764af8da17b370c1b525ae1a/INSTALL) and try to follow the instructions there.
-Now, you need to compile SVELDT. To do this please run the following commands
-
-```
-
-cd ..  # You need to go SVELDT directory
-   
-make
-
-```
-
-# Usage
-
-Great, now you can use the program by running 
-
-```
-
-./sveldt --bam bam_file --vcf vcf_file
-
-```
-
-where bam_file, vcf_file and output_file_name are the input files.

@@ -20,8 +20,6 @@
 #define __FLAG_SECONDARY_ALIGNMENT        0x100
 #define __FLAG_SUPPLEMENTARY_ALIGNMENT    0x800
 
-#define __CI_MIN_FILTER_LENGTH    5000
-#define __CI_MAX_LENGTH           0.1
 #define __WIDER_INTERVAL          40000
 #define __NARROW_INTERVAL         2000
 #define __CONSENSUS_INTEVAL       10
@@ -29,7 +27,7 @@
 #define __SV_MIN_LENGTH           50
 //#define CONSENSUS_COUNT_PERC    0.3
 
-#define __THREAD_NUMBER           32
+#define __THREAD_NUMBER           4
 #define __THREAD_POOL_LOAD_FACTOR 2
 
 typedef struct _args {
@@ -41,7 +39,6 @@ typedef struct _args {
     int verbose;
     int tload_factor;
     // program arguments
-    float ci_max_length;
     int wider_interval;
     int narrow_interval;
     int consensus_interval;
@@ -63,7 +60,6 @@ typedef struct _htslib_params {
 } htslib_params;
 
 typedef struct _t_arg {
-    float ci_max_length;
     int wider_interval;
     int narrow_interval;
     int consensus_interval;
