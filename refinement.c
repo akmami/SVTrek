@@ -1,5 +1,23 @@
 #include "refinement.h"
 
+int lower_bound(int *arr, int size, int location) {
+    for (int i = 0; i < size; i++) {
+        if (arr[i] > location) {
+            return i == 0 ? 0 : i-1;
+        }
+    }
+    return size - 1;
+}
+
+int upper_bound(int *arr, int size, int location) {
+    for (int i = 0; i < size; i++) {
+        if (arr[i] < location) {
+            return i;
+        }
+    }
+    return size - 1;
+}
+
 void quicksort(int *array, int low, int high) {
     if (low < high) {
         int pivot = array[high];
@@ -23,9 +41,6 @@ void quicksort(int *array, int low, int high) {
     }
 }
 
-/**
- * consensus() picks the most common (or "peak") value in a range of integers
- */
 int consensus(int *arr, int size, int consensus_min_count, int consensus_interval) {
     int consensus_val = -1;
     int max_count = consensus_min_count - 1;
@@ -46,37 +61,69 @@ int consensus(int *arr, int size, int consensus_min_count, int consensus_interva
     return consensus_val;
 }
 
-/**
- * consensus_pos() is similar, but picks the best cluster *and*
- * tries to be closest to imprecise_pos
- */
-int consensus_pos(int *locations, int size, int imprecise_pos, int consensus_min_count, int consensus_interval) {
-    int consensus_val = -1;
-    int max_count = consensus_min_count - 1;
-    int distance = 0x7fffffff;
+int consensus_pos(int *locations, int size, int pos, int consensus_min_count, int consensus_interval, int consensus_interval_range) {
+    
+    if (size < consensus_min_count) {
+        return -1;
+    }
 
+    int consensus_val_left = -1;
+    int max_count_left = consensus_min_count - 1;
+    int distance_left = 0x7fffffff;
+    int consensus_val_right = -1;
+    int max_count_right = consensus_min_count - 1;
+    int distance_right = 0x7fffffff;
+    
     quicksort(locations, 0, size-1);
 
-    for (int i = 0; i < size; i++) {
-        int count = 1;
-        for (int j = i + 1; j < size && locations[j] <= locations[i] + consensus_interval; j++) {
-            count++;
-        }
-        int candidate = locations[i];
+    int point = lower_bound(locations, size, pos + __SV_MIN_LENGTH / 2);
 
-        if (count > max_count || (count == max_count && abs(imprecise_pos - candidate) < distance)) {
-            max_count = count;
-            consensus_val = candidate;
-            distance = abs(imprecise_pos - candidate);
+    for (int i = point; 0 <= i && abs(pos-locations[i]) < consensus_interval_range; i--) {
+        int count = 1;
+        uint64_t total = locations[i];
+        for (int j = i - 1; 0 <= j && locations[i] <= locations[j] + consensus_interval; j--) {
+            count++;
+            total += locations[j];
+        }
+        int candidate = ( total + count / 2 ) / count;
+
+        if (count > max_count_left) {
+            if (abs(pos - candidate) < consensus_interval) {
+                return candidate;
+            } else if (abs(pos - candidate) < distance_left) {
+                max_count_left = count;
+                consensus_val_left = candidate;
+                distance_left = abs(pos - candidate);
+            }
         }
     }
-    return consensus_val;
+
+    point = upper_bound(locations, size, pos - __SV_MIN_LENGTH / 2);
+
+    for (int i = point; i < size && abs(pos-locations[i]) < consensus_interval_range; i++) {
+        int count = 1;
+        uint64_t total = locations[i];
+        for (int j = i + 1; j < size && locations[j] <= locations[i] + consensus_interval; j++) {
+            count++;
+            total += locations[j];
+        }
+        int candidate = ( total + count / 2 ) / count;
+
+        if (count > max_count_right) {
+            if (abs(pos - candidate) < consensus_interval) {
+                return candidate;
+            } else if (abs(pos - candidate) < distance_right) {
+                max_count_right = count;
+                consensus_val_right = candidate;
+                distance_right = abs(pos - candidate);
+            }
+        }
+    }
+
+    return distance_left < distance_right ? consensus_val_left : consensus_val_right;
 }
 
-/**
- * refine_start()
- */
-int refine_start(sv_type_t sv_type, int chrom, uint32_t outer_start, uint32_t inner_start, uint32_t imprecise_pos, t_arg *params) {
+int refine_start(sv_type_t sv_type, int chrom, interval inter, uint32_t imprecise_pos, t_arg *params) {
 
     int capacity = 100;
     int size = 0;
@@ -87,14 +134,13 @@ int refine_start(sv_type_t sv_type, int chrom, uint32_t outer_start, uint32_t in
     }
 
     bam1_t *aln = bam_init1();
-
-    // query the region from [outer_start - wider_interval] to [inner_start + narrow_interval]
-    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, outer_start-1, inner_start-1);
+    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, inter.start-1, inter.end-1);
 
     if (iter) {
         while (sam_itr_next(params->hargs.fp_in, iter, aln) > 0) {
             uint32_t reference_pos = aln->core.pos;
             uint32_t *cigar = bam_get_cigar(aln);
+            int check_soft_clip = bam_cigar_op(cigar[aln->core.n_cigar-1]) == __CIGAR_SOFT_CLIP;
 
             // n_cigar is unsigned, so use uint32_t in the loop
             for (uint32_t i = 0; i < aln->core.n_cigar; i++) {
@@ -108,19 +154,20 @@ int refine_start(sv_type_t sv_type, int chrom, uint32_t outer_start, uint32_t in
                         }
                         start_locations = temp;
                     }
-                    start_locations[size++] = reference_pos + 1;
+                    start_locations[size++] = reference_pos;
                 }
 
                 if (bam_cigar_op(cigar[i]) != __CIGAR_INSERTION && bam_cigar_op(cigar[i]) != __CIGAR_SOFT_CLIP) {
                     reference_pos += bam_cigar_oplen(cigar[i]);
                 }
 
-                if (reference_pos > inner_start) {
+                if (reference_pos > inter.end) {
+                    check_soft_clip = 0;
                     break;
                 }
             }
-
-            if (bam_cigar_op(cigar[0]) == __CIGAR_SOFT_CLIP && outer_start <= bam_cigar_oplen(cigar[0]) && bam_cigar_oplen(cigar[0]) <= inner_start) {
+            
+            if (check_soft_clip && inter.start <= reference_pos && reference_pos <= inter.end) {
                 if (capacity == size) {
                     capacity = capacity * 1.5;
                     int *temp = (int *)realloc(start_locations, sizeof(int)*capacity);
@@ -131,7 +178,7 @@ int refine_start(sv_type_t sv_type, int chrom, uint32_t outer_start, uint32_t in
                     start_locations = temp;
                 }
                 // +1 because positions are 1-based
-                start_locations[size++] = reference_pos + 1;
+                start_locations[size++] = reference_pos;
             }
         }
         sam_itr_destroy(iter);
@@ -139,13 +186,10 @@ int refine_start(sv_type_t sv_type, int chrom, uint32_t outer_start, uint32_t in
     bam_destroy1(aln);
 
     // pick the best refined start
-    return consensus_pos(start_locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval);
+    return consensus_pos(start_locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval, params->consensus_interval_range);
 }
 
-/**
- * refine_end()
- */
-int refine_end(sv_type_t sv_type, int chrom, uint32_t inner_end, uint32_t outer_end, uint32_t imprecise_pos, t_arg *params) {
+int refine_end(sv_type_t sv_type, int chrom, interval inter, uint32_t imprecise_pos, t_arg *params) {
 
     int capacity = 100;
     int size = 0;
@@ -156,17 +200,15 @@ int refine_end(sv_type_t sv_type, int chrom, uint32_t inner_end, uint32_t outer_
     }
 
     bam1_t *aln = bam_init1();
-
-    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, inner_end-1, outer_end-1);
+    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, inter.start-1, inter.end-1);
 
     if (iter) {
         while (sam_itr_next(params->hargs.fp_in, iter, aln) > 0) {
             uint32_t reference_pos = aln->core.pos;
             uint32_t *cigar = bam_get_cigar(aln);
-            uint32_t i = 0;
 
-            for (; i < aln->core.n_cigar; i++) {
-                if (sv_type == SV_INS && bam_cigar_op(cigar[i]) == __CIGAR_INSERTION && __SV_MIN_LENGTH < bam_cigar_oplen(cigar[i])) {
+            for (uint32_t i = 0; i < aln->core.n_cigar; i++) {
+                if (sv_type == SV_DEL && bam_cigar_op(cigar[i]) == __CIGAR_DELETION && __SV_MIN_LENGTH < bam_cigar_oplen(cigar[i])) {
                     if (capacity == size) {
                         capacity = capacity * 1.5;
                         int *temp = (int *)realloc(end_locations, sizeof(int)*capacity);
@@ -176,19 +218,19 @@ int refine_end(sv_type_t sv_type, int chrom, uint32_t inner_end, uint32_t outer_
                         }
                         end_locations = temp;
                     }
-                    end_locations[size++] = reference_pos + 1;
+                    end_locations[size++] = reference_pos + bam_cigar_oplen(cigar[i]) + 1;
                 }
 
                 if (bam_cigar_op(cigar[i]) != __CIGAR_INSERTION && bam_cigar_op(cigar[i]) != __CIGAR_SOFT_CLIP) {
                     reference_pos += bam_cigar_oplen(cigar[i]);
                 }
 
-                if (reference_pos > outer_end) {
+                if (reference_pos > inter.end) {
                     break;
                 }
             }
 
-            if (bam_cigar_op(cigar[i]) == __CIGAR_SOFT_CLIP && inner_end <= reference_pos && reference_pos <= outer_end) {
+            if (bam_cigar_op(cigar[0]) == __CIGAR_SOFT_CLIP && inter.start <= aln->core.pos && aln->core.pos <= inter.end) {
                 if (capacity == size) {
                     capacity = capacity * 1.5;
                     int *temp = (int *)realloc(end_locations, sizeof(int)*capacity);
@@ -206,13 +248,10 @@ int refine_end(sv_type_t sv_type, int chrom, uint32_t inner_end, uint32_t outer_
     bam_destroy1(aln);
 
     // pick the best refined end
-    return consensus_pos(end_locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval);
+    return consensus_pos(end_locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval, params->consensus_interval_range);
 }
 
-/**
- * refine_point() - used for insertions or single-point refinement
- */
-int refine_point(sv_type_t sv_type, int chrom, uint32_t start, uint32_t end, uint32_t imprecise_pos, t_arg *params) {
+int refine_point(sv_type_t sv_type, int chrom, interval inter, uint32_t imprecise_pos, t_arg *params) {
 
     int capacity = 100;
     int size = 0;
@@ -224,8 +263,7 @@ int refine_point(sv_type_t sv_type, int chrom, uint32_t start, uint32_t end, uin
 
     bam1_t *aln = bam_init1();
 
-    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, start-1, end-1);
-
+    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, inter.start-1, inter.end-1);
     if (iter) {
         while (sam_itr_next(params->hargs.fp_in, iter, aln) > 0) {
             uint32_t reference_pos = aln->core.pos;
@@ -242,14 +280,14 @@ int refine_point(sv_type_t sv_type, int chrom, uint32_t start, uint32_t end, uin
                         }
                         locations = temp;
                     }
-                    locations[size++] = reference_pos + 1;
+                    locations[size++] = reference_pos;
                 }
 
                 if (bam_cigar_op(cigar[i]) != __CIGAR_INSERTION && bam_cigar_op(cigar[i]) != __CIGAR_SOFT_CLIP) {
                     reference_pos += bam_cigar_oplen(cigar[i]);
                 }
 
-                if (reference_pos > end) {
+                if (reference_pos > inter.end) {
                     break;
                 }
             }
@@ -257,20 +295,68 @@ int refine_point(sv_type_t sv_type, int chrom, uint32_t start, uint32_t end, uin
         sam_itr_destroy(iter);
     }
     bam_destroy1(aln);
-
-    return consensus_pos(locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval);
+    return consensus_pos(locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval, params->consensus_interval_range);
 }
 
-void deletion(int chrom, uint32_t outer_start, uint32_t inner_start, uint32_t inner_end, uint32_t outer_end, uint32_t imprecise_pos, uint32_t imprecise_end, t_arg *params, uint32_t *res_start, uint32_t *res_end) {
-    (*res_start) = refine_start(SV_DEL, chrom, outer_start, inner_start, imprecise_pos, params);
-    (*res_end) = refine_end(SV_DEL, chrom, inner_end, outer_end, imprecise_end, params);
+int refine_ins(int chrom, interval inter, uint32_t imprecise_pos, t_arg *params) {
+
+    int capacity = 100;
+    int size = 0;
+    int *locations = (int *)malloc(sizeof(int)*capacity);
+    if(locations == NULL) {
+        fprintf(stderr, "Couldn't allocate array for positions.\n");
+        return -1;
+    }
+
+    bam1_t *aln = bam_init1();
+
+    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom-1, inter.start-1, inter.end-1);
+    int count = 0;
+    if (iter) {
+        while (sam_itr_next(params->hargs.fp_in, iter, aln) > 0) {
+            count++;
+            uint32_t reference_pos = aln->core.pos;
+            uint32_t *cigar   = bam_get_cigar(aln);
+
+            for (uint32_t i = 0; i < aln->core.n_cigar; i++) {
+                if (bam_cigar_op(cigar[i]) == __CIGAR_INSERTION && __SV_MIN_LENGTH <= bam_cigar_oplen(cigar[i])) {
+                    if (capacity == size) {
+                        capacity = capacity * 1.5;
+                        int *temp = (int *)realloc(locations, sizeof(int)*capacity);
+                        if (temp == NULL) {
+                            fprintf(stderr, "[ERROR] Couldn't reallocate locations array.\n");
+                            return -1;
+                        }
+                        locations = temp;
+                    }
+                    locations[size++] = reference_pos;
+                }
+
+                if (bam_cigar_op(cigar[i]) != __CIGAR_INSERTION && bam_cigar_op(cigar[i]) != __CIGAR_SOFT_CLIP) {
+                    reference_pos += bam_cigar_oplen(cigar[i]);
+                }
+
+                if (reference_pos > inter.end) {
+                    break;
+                }
+            }
+        }
+        sam_itr_destroy(iter);
+    }
+    bam_destroy1(aln);
+    return consensus_pos(locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval, params->consensus_interval_range);
 }
 
-void insertion(int chrom, uint32_t outer_start, uint32_t inner_start, uint32_t imprecise_pos, t_arg *params, uint32_t *res_start) {
-    (*res_start) = refine_point(SV_INS, chrom, outer_start, inner_start, imprecise_pos, params);
+void deletion(int chrom, interval begin, interval end, interval sv_inter, t_arg *params, interval *res_inter) {
+    res_inter->start = refine_start(SV_DEL, chrom, begin, sv_inter.start, params);
+    res_inter->end = refine_end(SV_DEL, chrom, end, sv_inter.end, params);
 }
 
-void inversion(int chrom, uint32_t outer_start, uint32_t inner_start, uint32_t inner_end, uint32_t outer_end, uint32_t imprecise_pos, uint32_t imprecise_end, t_arg *params, uint32_t *res_start, uint32_t *res_end) {
-    (*res_start) = refine_point(SV_INV, chrom, outer_start, inner_start, imprecise_pos, params);
-    (*res_end) = refine_point(SV_INV, chrom, inner_end, outer_end, imprecise_end, params);
+void insertion(int chrom, interval begin, uint32_t pos, t_arg *params, uint32_t *res_start) {
+    (*res_start) = refine_ins(chrom, begin, pos, params);
+}
+
+void inversion(int chrom, interval begin, interval end, interval sv_inter, t_arg *params, interval *res_inter) {
+    res_inter->start = refine_point(SV_INV, chrom, begin, sv_inter.start, params);
+    res_inter->end = refine_point(SV_INV, chrom, end, sv_inter.end, params);
 }

@@ -44,14 +44,20 @@ make
   - Enables verbose output.
   - **Default:** `false`
 - `--wider-interval <num>`
-  - Defines the offset interval for the start of the reads.
-  - **Default:** `40000`
+  - Defines the offset interval for the start of the reads (DEL-START).
+  - **Default:** `20000`
+- `--median-interval <num>`
+  - Defines the offset interval for the start of the reads (INS).
+  - **Default:** `10000`
 - `--narrow-interval <num>`
-  - Defines the offset interval for the end of the reads.
+  - Defines the offset interval for the end of the reads (DEL-END).
   - **Default:** `2000`
+- `--consensus-interval-range <num>`
+  - Specifies the offset that determines whether to consider the locations into the refinement.
+  - **Default:** `500`
 - `--consensus-interval <num>`
   - Specifies the interval that determines whether reads are considered to be in the same position.
-  - **Default:** `10`
+  - **Default:** `5`
 - `--consensus-min-count <num>`
   - Minimum number of elements required for consensus determination.
   - **Default:** `3`
