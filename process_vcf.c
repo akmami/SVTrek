@@ -172,35 +172,61 @@ void thread_func(void *_params) {
             }
         }
 
-        // CIPOS and CIEND produce "outer" and "inner" coordinates
-        uint32_t outer_start = pos - targs->wider_interval;
-        uint32_t inner_start = pos + targs->narrow_interval;
-        uint32_t inner_end = end - targs->narrow_interval;
-        uint32_t outer_end = end + targs->narrow_interval;
-
         switch (sv_type_enum) {
         case SV_INS:
             {
-                uint32_t ref_start;
-                insertion(chrom_index, outer_start, inner_start, pos, targs, &ref_start);
-                // printf("chr: %d, org pos: %u, ref pos: %u\n", chrom_index, pos, ref_start);
+                interval begin = {pos - targs->median_interval, pos + targs->median_interval};
+                uint32_t result;
+                insertion(chrom_index, begin, pos, targs, &result);
+                if (result == 0xFFFFFFFF) {
+                    printf("(INS) chr: %d, org pos: %u, ref pos: NA\n", chrom_index, pos);
+                } else {
+                    printf("(INS) chr: %d, org pos: %u, ref pos: %u, diff: %d\n", chrom_index, pos, result, result-pos);
+                }
             }
             break;
         case SV_DEL:
             {
                 if (__SV_MIN_LENGTH < end-pos) {
-                    uint32_t ref_start, ref_end;
-                    deletion(chrom_index, outer_start, inner_start, inner_end, outer_end, pos, end, targs, &ref_start, &ref_end);
-                    // printf("chr: %d, org pos: %u, org end: %u, ref pos: %u, ref end: %u\n", chrom_index, pos, end, ref_start, ref_end);
+                    interval del_begin = {pos - targs->wider_interval, pos + targs->narrow_interval};
+                    interval del_end = {end - targs->narrow_interval, end + targs->narrow_interval};
+                    interval sv_inter = {pos, end};
+                    interval result;
+                    deletion(chrom_index, del_begin, del_end, sv_inter, targs, &result);
+                    printf("(DEL) chr: %d, org pos: %u, org end: %u, ref pos: ", chrom_index, sv_inter.start, sv_inter.end);
+                    if (result.start == 0xFFFFFFFF) {
+                        printf("NA, ref end: ");
+                    } else {
+                        printf("%d, ref end: ", result.start);
+                    }
+                    if (result.end == 0xFFFFFFFF) {
+                        printf("NA, ");
+                    } else {
+                        printf("%d, ", result.end);
+                    }
+
+                    if (result.start == 0xFFFFFFFF) {
+                        printf("diff pos: NA, ");
+                    } else {
+                        printf("diff pos: %d, ", result.start-pos);
+                    }
+                    if (result.end == 0xFFFFFFFF) {
+                        printf("diff end: NA\n");
+                    } else {
+                        printf("diff end: %d\n", result.end-end);
+                    }
                 }
             }
             break;
         case SV_INV:
             {   
                 if (__SV_MIN_LENGTH < end-pos) {
-                    uint32_t ref_start, ref_end;
-                    inversion(chrom_index, outer_start, inner_start, inner_end, outer_end, pos, end, targs, &ref_start, &ref_end);
-                    // printf("chr: %d, org pos: %u, org end: %u, ref pos: %u, ref end: %u\n", chrom_index, pos, end, ref_start, ref_end);
+                    interval inv_begin = {pos - targs->wider_interval, pos + targs->wider_interval};
+                    interval inv_end = {end - targs->wider_interval, end + targs->wider_interval};
+                    interval sv_inter = {pos, end};
+                    interval result;
+                    inversion(chrom_index, inv_begin, inv_end, sv_inter, targs, &result);
+                    printf("(INV) chr: %d, org pos: %u, org end: %u, ref pos: %u, ref end: %u\n", chrom_index, pos, end, result.start, result.end);
                 }
             }
             break;
@@ -244,7 +270,9 @@ int process_vcf(args *params) {
         t_args[i].hargs.bam_hdr = sam_hdr_read(t_args[i].hargs.fp_in);
         t_args[i].hargs.bam_file_index = sam_index_load(t_args[i].hargs.fp_in, params->bam_file);
         t_args[i].wider_interval = params->wider_interval;
+        t_args[i].median_interval = params->median_interval;
         t_args[i].narrow_interval = params->narrow_interval;
+        t_args[i].consensus_interval_range = params->consensus_interval_range;
         t_args[i].consensus_interval = params->consensus_interval;
         t_args[i].consensus_min_count = params->consensus_min_count;
         t_args[i].queue = &(queue);

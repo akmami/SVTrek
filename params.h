@@ -20,12 +20,14 @@
 #define __FLAG_SECONDARY_ALIGNMENT        0x100
 #define __FLAG_SUPPLEMENTARY_ALIGNMENT    0x800
 
-#define __WIDER_INTERVAL          40000
-#define __NARROW_INTERVAL         2000
-#define __CONSENSUS_INTEVAL       10
-#define __CONSENSUS_MIN_COUNT     3
-#define __SV_MIN_LENGTH           50
-//#define CONSENSUS_COUNT_PERC    0.3
+#define __WIDER_INTERVAL           20000
+#define __MEDIAN_INTERVAL          10000
+#define __NARROW_INTERVAL          2000
+#define __CONSENSUS_INTERVAL_RANGE 500
+#define __CONSENSUS_INTEVAL        5
+#define __CONSENSUS_MIN_COUNT      3
+#define __SV_MIN_LENGTH            50
+//#define CONSENSUS_COUNT_PERC     0.3
 
 #define __THREAD_NUMBER           4
 #define __THREAD_POOL_LOAD_FACTOR 2
@@ -40,7 +42,9 @@ typedef struct _args {
     int tload_factor;
     // program arguments
     int wider_interval;
+    int median_interval;
     int narrow_interval;
+    int consensus_interval_range;
     int consensus_interval;
     int consensus_min_count;
 } args;
@@ -61,7 +65,9 @@ typedef struct _htslib_params {
 
 typedef struct _t_arg {
     int wider_interval;
+    int median_interval;
     int narrow_interval;
+    int consensus_interval_range;
     int consensus_interval;
     int consensus_min_count;
     htslib_params hargs;
@@ -82,5 +88,10 @@ typedef enum {
     SV_TRA,    // Translocation
     SV_BND     // Breakend
 } sv_type_t;
+
+typedef struct _interval {
+    uint32_t start;
+    uint32_t end;
+} interval;
 
 #endif // PARAMS_H
