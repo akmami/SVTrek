@@ -347,6 +347,53 @@ int refine_ins(int chrom, interval inter, uint32_t imprecise_pos, t_arg *params)
     return consensus_pos(locations, size, imprecise_pos, params->consensus_min_count, params->consensus_interval, params->consensus_interval_range);
 }
 
+int refine_ins_disc(int chrom, interval inter, uint32_t imprecise_pos, t_arg *params, int window_size, int slide_size) {
+    int capacity = 100;
+    int size = 0;
+    int *locations = (int *)malloc(sizeof(int) * capacity);
+    if (locations == NULL) {
+        fprintf(stderr, "Couldn't allocate array for positions.\n");
+        return -1;
+    }
+
+    bam1_t *aln = bam_init1();
+    hts_itr_t *iter = sam_itr_queryi(params->hargs.bam_file_index, chrom - 1, inter.start - 1, inter.end - 1);
+    if (iter) {
+        while (sam_itr_next(params->hargs.fp_in, iter, aln) > 0) {
+            uint32_t reference_pos = aln->core.pos;
+            uint32_t *cigar = bam_get_cigar(aln);
+            for (uint32_t i = 0; i < aln->core.n_cigar; i++) {
+                if (bam_cigar_op(cigar[i]) == __CIGAR_INSERTION &&
+                    __SV_MIN_LENGTH <= bam_cigar_oplen(cigar[i])) {
+                    if (size == capacity) {
+                        capacity = (int)(capacity * 1.5);
+                        int *temp = (int *)realloc(locations, sizeof(int) * capacity);
+                        if (temp == NULL) {
+                            fprintf(stderr, "[ERROR] Couldn't reallocate locations array.\n");
+                            free(locations);
+                            bam_destroy1(aln);
+                            return -1;
+                        }
+                        locations = temp;
+                    }
+                    locations[size++] = reference_pos;
+                }
+                if (bam_cigar_op(cigar[i]) != __CIGAR_INSERTION &&
+                    bam_cigar_op(cigar[i]) != __CIGAR_SOFT_CLIP) {
+                    reference_pos += bam_cigar_oplen(cigar[i]);
+                }
+                if (reference_pos > inter.end) {
+                    break;
+                }
+            }
+        }
+        sam_itr_destroy(iter);
+    }
+    bam_destroy1(aln);
+    int best_cons = sliding_window_ins( chrom,  inter,  imprecise_pos,  *params,  window_size,  slide_size);
+    return best_cons;
+}
+
 void deletion(int chrom, interval begin, interval end, interval sv_inter, t_arg *params, interval *res_inter) {
     res_inter->start = refine_start(SV_DEL, chrom, begin, sv_inter.start, params);
     res_inter->end = refine_end(SV_DEL, chrom, end, sv_inter.end, params);

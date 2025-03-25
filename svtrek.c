@@ -10,6 +10,10 @@ int main(int argc, char *argv[]){
 
     if (params.verbose) {
         printf("Program begins...\n");
+        if (params.mode == MODE_EVAL)
+            printf("Mode: Evaluation\n");
+        else if (params.mode == MODE_DISC)
+            printf("Mode: Discovery\n");
     }
     
     process_vcf(&params);

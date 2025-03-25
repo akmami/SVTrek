@@ -37,7 +37,7 @@ void init(int argc, char *argv[], args *params) {
 
     params->bam_file = NULL;
     params->vcf_file = NULL;
-    params->output_file = "svtrek.out"; // for now
+    params->output_file = "svtrek.out";
     params->verbose = 0;
     params->tload_factor = __THREAD_POOL_LOAD_FACTOR;
     params->thread_number = __THREAD_NUMBER;
@@ -47,6 +47,7 @@ void init(int argc, char *argv[], args *params) {
     params->consensus_interval_range = __CONSENSUS_INTERVAL_RANGE;
     params->consensus_interval = __CONSENSUS_INTEVAL;
     params->consensus_min_count = __CONSENSUS_MIN_COUNT;
+    params->mode = MODE_EVAL;
 
     struct option long_options[] = {
         {"bam", required_argument, NULL, 1},
@@ -59,6 +60,8 @@ void init(int argc, char *argv[], args *params) {
         {"consensus-interval-range", required_argument, NULL, 8},
         {"consensus-interval", required_argument, NULL, 9},
         {"consensus-min-count", required_argument, NULL, 10},
+        {"eval", no_argument, NULL, 11},
+        {"disc", no_argument, NULL, 12},
         {NULL, 0, NULL, 0}
     };
 
@@ -103,11 +106,17 @@ void init(int argc, char *argv[], args *params) {
             case 8:
                 params->consensus_interval_range = atoi(optarg);
                 break;
-            case 9: 
+            case 9:
                 params->consensus_interval = atoi(optarg);
                 break;
             case 10:
                 params->consensus_min_count = atoi(optarg);
+                break;
+            case 11:
+                params->mode = MODE_EVAL;
+                break;
+            case 12:
+                params->mode = MODE_DISC;
                 break;
             default:
                 exit(EXIT_FAILURE);
