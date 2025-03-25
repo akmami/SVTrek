@@ -47,6 +47,7 @@ typedef struct _args {
     int consensus_interval_range;
     int consensus_interval;
     int consensus_min_count;
+    enum {MODE_EVAL,MODE_DISC} mode;
 } args;
 
 typedef struct _line_queue {
