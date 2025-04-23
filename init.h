@@ -7,6 +7,11 @@
 #include <getopt.h>
 
 /**
+ * @brief Print usage manual to the console.asm
+ */
+void printUsage();
+
+/**
  * @brief Parses command-line arguments and initializes parameters.
  *
  * This function processes command-line arguments and initializes the `args` structure 
@@ -16,6 +21,9 @@
  * @param argv Array of command-line arguments.
  * @param params Pointer to the structure where parsed arguments will be stored.
  */
-void init(int argc, char *argv[], args *params);
+void init_audt(int argc, char *argv[], audt_args *params);
+
+
+void init_disc(int argc, char *argv[], disc_args *params);
 
 #endif
