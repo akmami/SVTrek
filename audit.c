@@ -1,4 +1,4 @@
-#include "process_vcf.h"
+#include "audit.h"
 
 sv_type_t parse_sv_type(const char *sv_str) {
     if (strcmp(sv_str, "INS") == 0 || strcmp(sv_str, "INS:ME") == 0 ) return SV_INS;
@@ -247,7 +247,8 @@ void thread_func(void *_params) {
     targs->hargs.bam_file_index = NULL;
 }
 
-int process_vcf(args *params) {
+int process_vcf(audt_args *params) {
+
     printf("[INFO] Started processing variation file.\n");
 
     t_arg *t_args = (t_arg*)malloc(params->thread_number * sizeof(t_arg));
@@ -353,4 +354,15 @@ int process_vcf(args *params) {
     printf("[INFO] Ended processing variation file\n");
 
     return 0;
-};
+}
+
+
+int audit(int argc, char *argv[]) {
+
+    audt_args params;
+    init_audt(argc, argv, &params);
+
+    process_vcf(&params);
+
+    return 1;
+}

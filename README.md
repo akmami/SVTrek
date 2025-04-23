@@ -1,6 +1,6 @@
 # SVTrek
 
-SVTrek is a bioinformatics tool for evaluating structural variation (SV) discoveries and can also perform SV discovery independently using long-read analysis.
+SVTrek is a bioinformatics tool for auditing structural variation (SV) discoveries and can also perform SV discovery independently using long-read analysis.
 
 ## Remarks
 
@@ -24,16 +24,42 @@ make
 
 ## Usage
 ```
-./svtrek [-b|--bam BAM] [-v|--vcf VCF file] [OPTIONS]
+./svtrek [MODE] [OPTIONS]
 ```
 
-## Required Parameters
+## Program Modes
+
+### `disc`
+
+SV discovery mode in graph alignment result. It requires input of GAF and GFA files.
+
+#### Usage
+```
+./svtrek disc [-r|--gfa r/GFA] [-a|--gaf GAF] [OPTIONS]
+```
+
+##### Required Parameters
+- `-r, --gfa <r/GFA>`
+  - Specifies the GFA file to be processed.
+- `-a, --gaf <GAF>`
+  - Specifies the GAF file to be used.
+
+### `audt`
+
+Variation auditing mode where it parses BAm file and validates the variations reported in VCF file.
+
+#### Usage
+```
+./svtrek audt [-b|--bam BAM] [-v|--vcf VCF file] [OPTIONS]
+```
+
+##### Required Parameters
 - `-b, --bam <BAM>`
   - Specifies the BAM file to be processed.
 - `-v, --vcf <VCF file>`
   - Specifies the VCF file to be used.
 
-## Options
+##### Options
 - `-o, --output <filename>`
   - Specifies the output filename.
   - **Default:** `svtrek.out`
@@ -61,9 +87,3 @@ make
 - `--consensus-min-count <num>`
   - Minimum number of elements required for consensus determination.
   - **Default:** `3`
-
-### Example Usage
-```
-./svtrek -b input.bam -v input.vcf
-```
-

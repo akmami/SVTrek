@@ -5,12 +5,12 @@
 #include "refinement.h"
 
 
-int sliding_window_ins(int chrom, interval inter, uint32_t imprecise_pos, t_arg *params, int windowSize, int slideSize) {
+int sliding_window_ins(int chrom, interval inter, t_arg *params, int windowSize, int slideSize) {
     int bestCandidateOverall = -1; 
     int maxSupportOverall = 0;
 
-    for (int sub_start = inter.start; sub_start < inter.end; sub_start += windowSize) {
-        int sub_end = sub_start + windowSize;
+    for (uint32_t sub_start = inter.start; sub_start < inter.end; sub_start += windowSize) {
+        uint32_t sub_end = sub_start + windowSize;
         if (sub_end > inter.end)
             sub_end = inter.end;  
 
@@ -68,7 +68,7 @@ int sliding_window_ins(int chrom, interval inter, uint32_t imprecise_pos, t_arg 
         int maxSupport = 0;
         
         for (int i = 0; i < size; i += slideSize) {
-            int end = i
+            int end = i;
             while (end < size && (locations[end] - locations[i]) <= windowSize) {
                 end++;
             }

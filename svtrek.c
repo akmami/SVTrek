@@ -1,25 +1,21 @@
-#include "init.h"
-#include "params.h"
-#include "process_vcf.h"
+#include "discover.h"
+
+#include "audit.h"
 
 int main(int argc, char *argv[]){
 
-    args params;
-
-    init(argc, argv, &params);
-
-    if (params.verbose) {
-        printf("Program begins...\n");
-        if (params.mode == MODE_EVAL)
-            printf("Mode: Evaluation\n");
-        else if (params.mode == MODE_DISC)
-            printf("Mode: Discovery\n");
+    if (argc < 2) {
+        printUsage();
+        exit(1);
     }
-    
-    process_vcf(&params);
 
-    if (params.verbose) {
-        printf("End of the program execution\n");
+    if (strcmp(argv[1], "disc") == 0) {
+        discover(argc, argv);
+    } else if (strcmp(argv[1], "audt") == 0) {
+        audit(argc, argv);
+    } else {
+        printUsage();
+        exit(1);
     }
 
     return 0;
