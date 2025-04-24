@@ -83,7 +83,6 @@ int next_node(const char *path, uint64_t *id, char *strand) {
     return 0;
 }
 
-
 FILE *io_open(const char* file_path, char **line, int cap) {
 
     FILE* file = fopen(file_path, "r");
