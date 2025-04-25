@@ -74,5 +74,17 @@ void io_close(FILE *file, char **str);
 int io_read(FILE *file, char **str, size_t *cap);
 void free_segments(segment **segments, int segment_size);
 
+#define ROW_SIZE 1024
+#define TYPE_IND 0xE0000000U   
+#define INDEX_IND  0x1FFFFFFFU  
+/**
+ * @brief Process a row of binary data for consensus calculation
+ *
+ * @param fp File pointer to binary file opened in "rb" mode
+ * @param params Parameter structure containing consensus settings
+ * @param imprecise_pos Imprecise position for consensus calculation
+ * @return Consensus position if successful, -1 on error or EOF
+ */
+int consensus2(FILE *fp, t_arg *params, uint32_t imprecise_pos);
 
 #endif
