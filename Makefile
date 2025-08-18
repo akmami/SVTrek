@@ -13,7 +13,7 @@ TIME := /usr/bin/time -v
 
 # object files that need lcptools
 HTSLIB_CXXFLAGS := -I$(CURRENT_DIR)/htslib/include
-HTSLIB_LDFLAGS := -L$(CURRENT_DIR)/htslib/lib -lhts -Wl,-rpath,$(CURRENT_DIR)/htslib/lib -pthread
+HTSLIB_LDFLAGS := -L$(CURRENT_DIR)/htslib/lib -lhts -Wl,-rpath,$(CURRENT_DIR)/htslib/lib -pthread -lz
 
 $(TARGET): $(OBJS)
 	$(GXX) $(CXXFLAGS) -o $@ $^ $(HTSLIB_LDFLAGS)
@@ -28,7 +28,10 @@ install:
 	autoreconf -i && \
 	./configure && \
 	make && \
-	make prefix=$(CURRENT_DIR)/htslib install
+	make prefix=$(CURRENT_DIR)/htslib install && \
+	cd ../abPOA && \
+	make
+
 
 clean:
 	rm -rf *.o svtrek

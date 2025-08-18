@@ -3,6 +3,7 @@
 **/DS_Store
 *.o
 .idea
+.vscode
 
 # svtrek
 svtrek

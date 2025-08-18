@@ -98,6 +98,7 @@ typedef struct _disc_args {
     // input arguments
     const char* gfa_file;
     const char* gaf_file;
+    const char* fq_file;
     const char* output_file;
     int thread_number;
     int verbose;
@@ -124,25 +125,33 @@ typedef struct _interval {
     uint32_t end;
 } interval;
 
-typedef struct alignment {
+typedef struct _alignment {
     char *readName;
     int readLen;
-    int readStart; // The start position of the query (read) in the alignment.
-    int readEnd; // The end position of the query (read) in the alignment.
-    char strand; // + or -
-    char *path; // node names in < or > directions
+    int readStart;      // The start position of the query (read) in the alignment.
+    int readEnd;        // The end position of the query (read) in the alignment.
+    char strand;        // + or -
+    char *path;         // node names in < or > directions
     int pathLen;
-    int pathStart; // The start position of the alignment on the reference node path.
-    int pathEnd; // The end position of the alignment on the reference node path.
-    int matches; // The number of matching bases between the query and the reference.
-    int blockLen; // The length of the aligned block (number of bases in the alignment block).
-    int qual; // The mapping quality score, 255 not avaialble 
-    int xdi; // NM:i:22 The number of mismatches, deletions, and insertions in the alignment (represented as an integer value).
-    float score; // AS:f:14239.3 (optional) The alignment score as a floating-point number, if provided (this field is optional).
-    float divergence; // dv:f:0.00153685 The divergence score, which quantifies how different the alignment is by calculating a ratio of mismatches, deletions, and insertions relative to the total alignment length.
-    float identity; // id:f:0.998463 The identity score, which is the ratio of matches to the total alignment length (matches, mismatches, deletions, and insertions).
-    char *cigar; //  cg:Z:3=1I (optional)
+    int pathStart;      // The start position of the alignment on the reference node path.
+    int pathEnd;        // The end position of the alignment on the reference node path.
+    int matches;        // The number of matching bases between the query and the reference.
+    int blockLen;       // The length of the aligned block (number of bases in the alignment block).
+    int qual;           // The mapping quality score, 255 not avaialble 
+    int xdi;            // NM:i:22 The number of mismatches, deletions, and insertions in the alignment (represented as an integer value).
+    float score;        // AS:f:14239.3 (optional) The alignment score as a floating-point number, if provided (this field is optional).
+    float divergence;   // dv:f:0.00153685 The divergence score, which quantifies how different the alignment is by calculating a ratio of mismatches, deletions, and insertions relative to the total alignment length.
+    float identity;     // id:f:0.998463 The identity score, which is the ratio of matches to the total alignment length (matches, mismatches, deletions, and insertions).
+    char *cigar;        // cg:Z:3=1I (optional)
 } alignment;
+
+typedef struct _gaf_breakpoint {
+    int readStart;
+    int readEnd;
+    int rc;
+    int offset;
+    sv_type_t type;
+} gaf_breakpoint;
 
 typedef struct segment {
     uint64_t id;

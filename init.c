@@ -8,7 +8,7 @@ void printUsage() {
 }
 
 void printDiscUsage() {
-    printf("Usage: ./svtrek disc [-r|--gfa r/GFA] [-a|--gaf GAF] [OPTIONS]\n");
+    printf("Usage: ./svtrek disc [-r|--gfa r/GFA] [-a|--gaf GAF] [-q|--fq FASTQ] [OPTIONS]\n");
     printf("Options:\n");
     printf("    [-o|--ouput] <filename>           Output filename [Default: svtrek.out]\n");
     printf("    -t <num>                          Thread number [Default: %d]\n", __THREAD_NUMBER);
@@ -155,6 +155,7 @@ void init_disc(int argc, char *argv[], disc_args *params) {
 
     params->gfa_file = NULL;
     params->gaf_file = NULL;
+    params->fq_file = NULL;
     params->output_file = "svtrek.out";
     params->verbose = 0;
     params->tload_factor = __THREAD_POOL_LOAD_FACTOR;
@@ -167,19 +168,20 @@ void init_disc(int argc, char *argv[], disc_args *params) {
     struct option long_options[] = {
         {"gfa", required_argument, NULL, 1},
         {"gaf", required_argument, NULL, 2},
-        {"output", required_argument, NULL, 3},
-        {"verbose", no_argument, NULL, 4},
-        {"consensus-interval-range", required_argument, NULL, 5},
-        {"consensus-interval", required_argument, NULL, 6},
-        {"consensus-min-count", required_argument, NULL, 7},
-        {"help", no_argument, NULL, 8},
+        {"fq", required_argument, NULL, 3},
+        {"output", required_argument, NULL, 4},
+        {"verbose", no_argument, NULL, 5},
+        {"consensus-interval-range", required_argument, NULL, 6},
+        {"consensus-interval", required_argument, NULL, 7},
+        {"consensus-min-count", required_argument, NULL, 8},
+        {"help", no_argument, NULL, 9},
         {NULL, 0, NULL, 0}
     };
 
     int opt;
     int long_index;
 
-    while ((opt = getopt_long(argc, argv, "r:a:o:t:h", long_options, &long_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "r:a:q:o:t:h", long_options, &long_index)) != -1) {
         switch (opt) {
             case 'r':
                 params->gfa_file = optarg;
@@ -193,31 +195,37 @@ void init_disc(int argc, char *argv[], disc_args *params) {
             case 2:
                 params->gaf_file = optarg;
                 break;
+            case 'q':
+                params->fq_file = optarg;
+                break;
+            case 3:
+                params->fq_file = optarg;
+                break;
             case 'o':
                 params->output_file = optarg;
                 break;
-            case 3:
+            case 4:
                 params->output_file = optarg;
                 break;
-            case 4:
+            case 5:
                 params->verbose = 1;
                 break;
             case 't':
                 params->thread_number = atoi(optarg);
                 break;
-            case 5:
+            case 6:
                 params->consensus_interval_range = atoi(optarg);
                 break;
-            case 6:
+            case 7:
                 params->consensus_interval = atoi(optarg);
                 break;
-            case 7:
+            case 8:
                 params->consensus_min_count = atoi(optarg);
                 break;
             case 'h':
                 printDiscUsage();
                 exit(EXIT_SUCCESS);
-            case 8:
+            case 9:
                 printDiscUsage();
                 exit(EXIT_SUCCESS);
             default:
@@ -229,5 +237,6 @@ void init_disc(int argc, char *argv[], disc_args *params) {
 
     validate_file(params->gfa_file, "[ERROR] r/GFA file is not provided.");
     validate_file(params->gaf_file, "[ERROR] GAF file is not provided.");
+    validate_file(params->fq_file, "[ERROR] FASTQ file is not provided.");
 }
 
