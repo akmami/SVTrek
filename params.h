@@ -159,6 +159,7 @@ typedef struct segment {
     int start;
     int end;
     int rank;
+    struct segment *next;
 } segment;
 
 #endif // PARAMS_H

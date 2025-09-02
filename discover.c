@@ -245,26 +245,21 @@ int parse_gaf(const char* file_path, segment *segments, map32_t *h1, gaf_breakpo
     return temp_breakpoint_size;
 }
 
-int parse_gfa(const char* file_path, segment **segments, int *segment_size, map32_t *h1, char ***path_ids, int *path_ids_size) {
+int parse_gfa(const char* file_path, segment **segments, int *segment_size, map32_t *h1) {
 
-    // NOTE: Start position for each segment is set to be -1 as default. If rGFA format is provided, tags were used
-    // NOTE: Rank for each segment is set to be 1 as default. If rGFA format is provided, tags were used
+    // NOTE: Rank for each segment is set to be 1 as default.
     // NOTE: It is assumed that ranks can be only 0 and 1. No rank > 1 is allowed
     // NOTE: No overlap > 0 is allowed
-    // NOTE: It is assumed that the order of Links are consisted, i.e., if S1->S2->S3, then S1->S2 link should be presented before of S2->S3
 
     size_t line_cap = MAX_LINE;
     char *line = NULL;
     FILE *file = io_open(file_path, &line, line_cap, "r");
     int line_len = 0;
     
+    // Allocation for Segment
     int temp_segment_size = 0, segment_capacity = 1000000;
     segment *temp_segments = (segment *)malloc(segment_capacity * sizeof(segment));
     validate(temp_segments)
-
-    int temp_path_ids_size = 0, temp_path_ids_capacity = 128;
-    char **temp_path_ids = (char **)malloc(temp_path_ids_capacity * sizeof(char *));
-    validate(temp_path_ids)
 
     while ((line_len = io_read(file, &line, &line_cap))) {
         if (line[0] == 'S') {
@@ -279,51 +274,25 @@ int parse_gfa(const char* file_path, segment **segments, int *segment_size, map3
             
             // Sequence
             token = strtok_r(NULL, "\t", &saveptr); // Sequence string
-            temp_segments[temp_segment_size].seq = malloc(strlen(token) + 1);
+            size_t seq_len = strlen(token);
+            temp_segments[temp_segment_size].seq = malloc(seq_len + 1);
             validate(temp_segments[temp_segment_size].seq)
             strcpy(temp_segments[temp_segment_size].seq, token);
             
             temp_segments[temp_segment_size].rank = 1;
             temp_segments[temp_segment_size].start = -1;
-
-            // INFO
-            token = strtok_r(NULL, "\t", &saveptr); // process rest 
-            while (token) {
-                char *info_saveptr;
-                char *tag = strtok_r(token, ":", &info_saveptr);  // get TAG
-                char *type = strtok_r(NULL, ":", &info_saveptr);  // get TYPE
-                char *value = strtok_r(NULL, ":", &info_saveptr); // get VALUE
-
-                if (tag && type && value) {
-                    if (strcmp(tag, "SN") == 0 && strcmp(type, "Z") == 0) {
-                        // temp_segments[temp_segment_size].seq_name = strdup(value);
-                    } else if (strcmp(tag, "SO") == 0 && strcmp(type, "i") == 0) {
-                        temp_segments[temp_segment_size].start = atoi(value);
-                        temp_segments[temp_segment_size].end = atoi(value) + strlen(temp_segments[temp_segment_size].seq);
-                    } else if (strcmp(tag, "SR") == 0 && strcmp(type, "i") == 0) {
-                        temp_segments[temp_segment_size].rank = atoi(value);
-                    } 
-                }
-
-                token = strtok_r(NULL, "\t", &saveptr); // move to the next field
-            }
+            temp_segments[temp_segment_size].end = seq_len;
+            temp_segments[temp_segment_size].next = NULL;
             
             khint_t k; int absent;
             k = map32_put(h1, temp_segments[temp_segment_size].id, &absent);
             kh_val(h1, k) = temp_segment_size; // set value as index in segments
             temp_segment_size++;
         } else if (line[0] == 'L') {
-            // We make validation of overlaps in second streaming of the file when Links are processed
             // Do nothing at this point
         } else if (line[0] == 'P') {
             char *token = strtok(line, "\t");
             token = strtok(NULL, "\t"); // process path ID
-
-            available(char *, temp_path_ids, temp_path_ids_size, temp_path_ids_capacity)
-            temp_path_ids[temp_path_ids_size] = (char *)malloc(strlen(token) + 1);
-            validate(temp_path_ids[temp_path_ids_size])
-            strcpy(temp_path_ids[temp_path_ids_size], token);
-            
             token = strtok(NULL, "\t"); // process segment IDs
 
             char *segment_token = strtok(token, ",");
@@ -336,6 +305,7 @@ int parse_gfa(const char* file_path, segment **segments, int *segment_size, map3
                 uint64_t seg_id = strtoull(segment_token, NULL, 10);
                 khint_t k = map32_get(h1, seg_id);
                 segment *current_segment = temp_segments + kh_val(h1, k);
+                
                 current_segment->rank = 0;
                 current_segment->start = ref_pos;
                 ref_pos += strlen(current_segment->seq);
@@ -363,26 +333,47 @@ int parse_gfa(const char* file_path, segment **segments, int *segment_size, map3
             }
 
             khint_t k1 = map32_get(h1, id1);
+            if (kh_val(h1, k1) == kh_end(h1)) {
+                fprintf(stderr, "[ERROR] Segment %lu does not exists.\n", id1);
+                exit(1);
+            }
             segment *segment1 = temp_segments + kh_val(h1, k1);
+
             khint_t k2 = map32_get(h1, id2);
+            if (kh_val(h1, k2) == kh_end(h1)) {
+                fprintf(stderr, "[ERROR] Segment %lu does not exists.\n", id2);
+                exit(1);
+            }
             segment *segment2 = temp_segments + kh_val(h1, k2);
 
-            if (segment2->rank && segment2->start > 0) { // not sure whether segment2->start > 0 is needed or not
-                if (segment1->start > 0) { // if the links are ordered, no need for validation here, as well
-                    segment2->start = segment1->end + strlen(segment1->seq);
-                    segment2->end = segment2->start + strlen(segment2->seq);
-                }
+            if (segment1->rank && segment2->rank) {
+                segment1->next = segment2;
+            } else if (segment1->rank == 0 && segment2->rank) {
+                segment2->start = 0;
+                segment2->end = strlen(segment2->seq);
             }
-            // For not, we leave as it is this part. But it can be simplified to segment2->start = segment1->end
         }
     }
 
     io_close(file, &line);
 
+    for (int i = 0; i < temp_segment_size; i++) {
+        if (temp_segments[i].rank == 1 && temp_segments[i].start == 0 && temp_segments[i].next == NULL) {
+            int path_length = 0;
+
+            segment *current_segment = temp_segments + i;
+
+            while (current_segment != NULL) {
+                current_segment->start = path_length;
+                path_length += current_segment->end;
+                current_segment->end = path_length;
+                current_segment = current_segment->next;
+            }
+        }
+    }
+
     *segments = temp_segments;
     *segment_size = temp_segment_size;
-    *path_ids = temp_path_ids;
-    *path_ids_size = temp_path_ids_size;
 
     return 0;
 }
@@ -423,21 +414,20 @@ int discover(int argc, char *argv[]) {
     map32_t *h1 = map32_init();
 
     segment *segments; int segment_size;
-    char **path_ids; int path_ids_size;
-    if (parse_gfa(params.gfa_file, &segments, &segment_size, h1, &path_ids, &path_ids_size)) {
+    if (parse_gfa(params.gfa_file, &segments, &segment_size, h1)) {
         fprintf(stderr, "[ERROR] GFA file parsing resulted in null.\n");
         return 0;
     }
 
-    mapstr_t *h2 = mapstr_init();
+    mapstr_t *h3 = mapstr_init();
 
     gaf_breakpoint *gaf_breakpoints; int gaf_breakpoint_size;
-    if ((gaf_breakpoint_size = parse_gaf(params.gaf_file, segments, h1, &gaf_breakpoints, h2))) {
+    if ((gaf_breakpoint_size = parse_gaf(params.gaf_file, segments, h1, &gaf_breakpoints, h3))) {
         fprintf(stderr, "[ERROR] GAF file parsing failed.\n");
         return 0;
     }
 
-    parse_fq(params.fq_file, gaf_breakpoints, h2);
+    parse_fq(params.fq_file, gaf_breakpoints, h3);
 
     // Cleanup segments
     for (int i = 0; i < segment_size; i++) {
@@ -447,13 +437,7 @@ int discover(int argc, char *argv[]) {
     free(gaf_breakpoints);
 
     map32_destroy(h1);
-    mapstr_destroy(h2);
-
-    // Cleanup path ids
-    for (int i = 0; i < path_ids_size; i++) {
-        free(path_ids[i]);
-    }
-    free(path_ids);
+    mapstr_destroy(h3);
 
     return 1;
 }
